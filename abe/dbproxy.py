@@ -191,7 +191,7 @@ class MongoDBProxy(object):
         if isinstance(block_height, int):
             table_id = block_height / FLAGS.table_capacity
             table_name = table_name + str(table_id)
-        self.mongo_cli.add_index1(table_name, indexes)
+        self.mongo_cli.add_index(table_name, indexes)
 
     def drop_db(self, db_name = FLAGS.mongodb_default_db):
         '''

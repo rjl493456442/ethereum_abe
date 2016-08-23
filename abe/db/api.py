@@ -65,8 +65,12 @@ class MongodbClient(object):
         res = self.mc[table].find().count()
         return int(res) if res else 0
 
+    def add_index(self, table, indexs):
+        self.mc[table].create_index(indexs)
+
 
 
 
 
         
+    
