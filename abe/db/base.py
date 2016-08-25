@@ -40,7 +40,7 @@ class Base(object):
         ]
         for index in uncles_indexs:
             self.db_proxy.add_index(FLAGS.uncles, index, block_height = block_height)
-    
+
     def add_indexes_for_token(self, name):
         token_indexs = [
             [("account", pymongo.ASCENDING)],
