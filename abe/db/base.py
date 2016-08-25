@@ -15,36 +15,43 @@ class Base(object):
 
     def add_indexes(self, block_height):
         blocks_indexs = [
-            ("number", pymongo.ASCENDING),
-            ("hash", pymongo.ASCENDING),
+            [("number", pymongo.ASCENDING)],
+            [("hash", pymongo.ASCENDING)],
         ]
-        self.db_proxy.add_index(FLAGS.blocks, blocks_indexs, block_height = block_height)
+        for index in blocks_indexs:
+            self.db_proxy.add_index(FLAGS.blocks, index, block_height = block_height)
 
-        txs_indexs = [
-            ("blockNumber", pymongo.ASCENDING),
-            ("hash", pymongo.ASCENDING),
+        tx_indexes = [
+            [("blockNumber", pymongo.ASCENDING)],
+            [("hash", pymongo.ASCENDING)],
         ]
-        self.db_proxy.add_index(FLAGS.txs, txs_indexs, block_height = block_height)
+        for index in tx_indexes:
+            self.db_proxy.add_index(FLAGS.txs, index, block_height = block_height)
 
         accounts_indexs = [
-            ("address", pymongo.ASCENDING),
+            [("address", pymongo.ASCENDING)],
         ]
-        self.db_proxy.add_index(FLAGS.accounts, accounts_indexs, block_height = block_height)
+        for index in accounts_indexs:
+            self.db_proxy.add_index(FLAGS.accounts, index, block_height = block_height)
 
         uncles_indexs = [
-            ("mainNumber", pymongo.ASCENDING),
-            ("hash", pymongo.ASCENDING),
+            [("mainNumber", pymongo.ASCENDING)],
+            [("hash", pymongo.ASCENDING)],
         ]
-        self.db_proxy.add_index(FLAGS.uncles, uncles_indexs, block_height = block_height)
+        for index in uncles_indexs:
+            self.db_proxy.add_index(FLAGS.uncles, index, block_height = block_height)
     
     def add_indexes_for_token(self, name):
         token_indexs = [
-            ("account", pymongo.ASCENDING),
+            [("account", pymongo.ASCENDING)],
         ]
-        self.db_proxy.add_index(FLAGS.balance_prefix + name, token_indexs)
+        for index in token_indexs:
+            self.db_proxy.add_index(FLAGS.balance_prefix + name, index)
+
         token_indexs = [
-            ("from", pymongo.ASCENDING),
-            ("to", pymongo.ASCENDING),
+            [("from", pymongo.ASCENDING)],
+            [("to", pymongo.ASCENDING)],
         ]
-        self.db_proxy.add_index(FLAGS.token_prefix + name, token_indexs)
+        for index in token_indexs:
+            self.db_proxy.add_index(FLAGS.token_prefix + name, index)
 
