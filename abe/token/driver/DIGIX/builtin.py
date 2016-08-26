@@ -44,7 +44,8 @@ class BuiltinDriver(base.TokenBuiltinBase):
         basic_info = dict(
             token=self.type,
             source_code=source_code,
-            abi=abi
+            abi=abi,
+            address=constant.DIGIX_ADDR
         )
         self.db_proxy.update(FLAGS.token_basic, {"token":self.type}, {"$set":basic_info}, upsert = True)
 
