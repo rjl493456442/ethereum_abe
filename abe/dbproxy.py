@@ -202,6 +202,13 @@ class MongoDBProxy(object):
         '''
         self.mongo_cli.conn.drop_database(db_name)
 
+    def get_table_count(self, table_prefix):
+        self.mongo_cli.use_db(FLAGS.mongodb_default_db)
+        tables = self.mongo_cli.mc.collection_names()
+        nums = [int(t[len(table_prefix):]) for t in tables if t.startswith(table_prefix)]
+        return len(nums)
+
+
 
 
 

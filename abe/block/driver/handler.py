@@ -8,13 +8,14 @@ from abe import utils
 FLAGS = flags.FLAGS
 
 class BlockHandler(object):
-    def __init__(self, rpc_cli, logger, db_proxy):
+    def __init__(self, rpc_cli, logger, db_proxy, sync_balance = False):
         self.rpc_cli = rpc_cli
         self.logger = logger
         self.db_proxy = db_proxy
+        self.sync_balance = sync_balance
         super(BlockHandler, self).__init__()
 
-    def execute(self, blockinfo, repeat_check, fork_check):
+    def execute(self, blockinfo, fork_check):
         if isinstance(blockinfo, int):
             method_name = constant.METHOD_GET_BLOCK_BY_NUMBER
 
@@ -38,11 +39,11 @@ class BlockHandler(object):
                         '''
                         self.process_fork(res, blk)
                     else:
-                        success = self.process_block(blk, repeat_check)
+                        success = self.process_block(blk)
                         return True
                 else:
                     # no necessary to check whether is a fork block
-                    success = self.process_block(blk, repeat_check)
+                    success = self.process_block(blk)
                 return success
             else:
                 self.logger.info("block %s not exist in blockchain, discard" % blk["number"])
@@ -55,15 +56,13 @@ class BlockHandler(object):
         ''' add genesis block to db '''
         txs = block['transactions']
         timestamp = block['timestamp']
+        
         for tx in txs:
             tx['blockNumber'] = "0x0"
             tx['timestamp'] = timestamp
-            value = utils.convert_to_int(tx['value'])
-            balance = utils.unit_convert(value)
             operation = {
-                    "$addToSet" : {"tx_in": tx["hash"]},
-                    "$set" : {"address" : tx["to"]},
-                    "$inc" : {"balance" : balance}
+                "$addToSet" : {"tx_in": tx["hash"]},
+                "$set" : {"address" : tx["to"]},
             }
             self.db_proxy.update(FLAGS.accounts, {"address":tx["to"]}, operation, upsert = True, multi = False, block_height = 0)
             self.db_proxy.update(FLAGS.txs, {"hash":tx["hash"]}, {"$set":tx}, upsert = True, multi = False, block_height = 0)
@@ -72,33 +71,44 @@ class BlockHandler(object):
         self.db_proxy.insert(FLAGS.blocks, block, block_height = 0)
         return True
 
-    def process_block(self, block, repeat_check):
+    def process_block(self, block):
         txs = block['transactions']
-        timestamp = block['timestamp']
-        
+        timestamp = block['timestamp']      
+        # process tx 
         total_fee = 0
         for tx in txs:
-            res = self.process_tx(tx, timestamp, repeat_check)
+            res = self.process_tx(tx, timestamp)
             if res:
                 total_fee = total_fee + res
         block['number'] = utils.convert_to_int(block['number'])
 
+        # get tx related accounts
+        accounts = []
+        for tx in txs:
+            accounts.append(tx['from'])
+            accounts.append(tx['to'])
+
         del block['transactions']
+
+        # update miner account
         basic_reward = FLAGS.default_reward + len(block['uncles']) * FLAGS.default_reward * 1.0 / 32
         basic_reward = utils.unit_convert_from_ether(basic_reward)
         block['reward'] = total_fee + basic_reward
-
-        if repeat_check and self.db_proxy.get(FLAGS.accounts, 
-            {"address":block["miner"], "mine" : {"$elemMatch": {"$eq" : block["hash"] }}}, block_height = self.blk_number):
-            self.logger.info("block: %s has been add to miner account %s" % (block['hash'], block['miner']))
-        else:
-            operation = {
-                "$addToSet" : {"mine": block["hash"]},
-                "$set" : {"address" : block["miner"]},
-                "$inc" : {"balance" : block['reward']}
-            }
-            self.db_proxy.update(FLAGS.accounts, {"address":block["miner"]}, operation, block_height = self.blk_number, upsert = True)
-        self.process_uncle(block, repeat_check)
+    
+        operation = {
+            "$addToSet" : {"mine": block["hash"]},
+            "$set" : {"address" : block["miner"]},
+        }
+        self.db_proxy.update(FLAGS.accounts, {"address":block["miner"]}, operation, block_height = self.blk_number, upsert = True)
+        # process uncle
+        uncle_miners = self.process_uncle(block)
+        accounts.extend(uncle_miners)
+        accounts.append(block['miner'])
+        
+        if self.sync_balance:
+            self.set_balance(accounts, self.blk_number)
+    
+        # insert block
         self.db_proxy.update(FLAGS.blocks, {"number":block['number']}, {"$set":block}, block_height = self.blk_number, upsert = True)
         return True
 
@@ -111,11 +121,11 @@ class BlockHandler(object):
         (4) mark the origin
         '''
         self.logger.info("chain head change at height %d" % old_block["number"])
-        
+        accounts = old_hashes = new_hashes = []
         old_txs = self.db_proxy.get(FLAGS.txs, {"blockNumber" : hex(old_block['number'])}, block_height = self.blk_number, multi = True)
 
         old_hashes = [tx['hash'] for tx in old_txs]
-        new_hashes = [tx['hash'] for tx in new_block['transactions']]
+        new_hashes = [tx['hash'] for tx in new_block['transactions']]    
 
         # undo_txs
         undo_txs = []
@@ -124,21 +134,26 @@ class BlockHandler(object):
             if thash not in new_hashes:
                 undo_txs.append(old_txs[_])
                 undo_fee = undo_fee + old_txs[_]['fee']
+                accounts.append(old_txs[_]['from'])
+                accounts.append(old_txs[_]['to'])
 
         # apply_txs
         apply_txs = []
         for _,tx in enumerate(new_hashes):
             if tx not in old_hashes:
                 apply_txs.append(new_block['transactions'][_])
+                accounts.append(new_block['transactions'][_]['from'])
+                accounts.append(new_block['transactions'][_]['to'])
 
         # revert
         self.revert(old_block, undo_txs)
-        self.revert_uncle(old_block)
+        revert_uncle_miners = self.revert_uncle(old_block)
+        accounts.extend(revert_uncle_miners)
 
         # process new block
         apply_fee = 0
         for tx in apply_txs:
-            fee = self.process_tx(tx, new_block['timestamp'], False)
+            fee = self.process_tx(tx, new_block['timestamp'])
             apply_fee = apply_fee + fee
 
         # save new block info
@@ -153,13 +168,23 @@ class BlockHandler(object):
         operation = {
             "$addToSet" : {"mine": new_block["hash"]},
             "$set" : {"address" : new_block["miner"]},
-            "$inc" : {"balance" : new_block['reward']}
         }
         self.db_proxy.update(FLAGS.accounts, {"address":new_block["miner"]}, operation, block_height = self.blk_number, upsert = True)
-        self.process_uncle(new_block, True)
+        
+        uncle_miners =  self.process_uncle(new_block)
+        accounts.extend(uncle_miners)
+
+        accounts.append(new_block["miner"])
+        accounts.append(old_block["miner"])
+        # set balance
+        if self.sync_balance:
+            self.set_balance(accounts, self.blk_number)
+
         self.db_proxy.update(FLAGS.blocks, {"hash": new_block['hash']}, {"$set":new_block}, block_height = self.blk_number, upsert = True)
 
-    def process_uncle(self, block, repeat_check):
+    def process_uncle(self, block):
+        miners = []
+
         if isinstance(block['number'], str) or isinstance(block['number'], unicode):
             current_height = utils.convert_to_int(block['number'])
             block['number'] = current_height
@@ -169,24 +194,22 @@ class BlockHandler(object):
         for _, uncle in enumerate(block['uncles']):
             buncle = self.rpc_cli.call(constant.METHOD_GET_UNCLE_BY_BLOCK_HASH_AND_INDEX, block["hash"], _)
             if buncle:
+                miners.append(buncle["miner"])
                 uncle_reward = (utils.convert_to_int(buncle['number']) - current_height + 8) * 1.0 * FLAGS.default_reward / 8
                 uncle_reward = utils.unit_convert_from_ether(uncle_reward)
-                if repeat_check and self.db_proxy.get(FLAGS.accounts, 
-                    {"address":buncle["miner"], "uncles" : {"$elemMatch": {"$eq" : buncle["hash"] }}}, block_height = current_height):
-                    self.logger.info("uncle: %s has been process at height %s" % (buncle['hash'], buncle['number']))
-                else:
-                    operation = {
-                        "$set" : {"address" : buncle["miner"]},
-                        "$inc" : {"balance" : uncle_reward},
-                        "$addToSet" : {"uncles" : uncle}
-                    }
-                    self.db_proxy.update(FLAGS.accounts, {"address":buncle["miner"]}, operation, block_height = current_height, upsert = True)
+                
+                operation = {
+                    "$set" : {"address" : buncle["miner"]},
+                    "$addToSet" : {"uncles" : uncle}
+                }
+                self.db_proxy.update(FLAGS.accounts, {"address":buncle["miner"]}, operation, block_height = current_height, upsert = True)
 
                 buncle['mainNumber'] = current_height
                 buncle['reward'] = uncle_reward
                 self.db_proxy.update(FLAGS.uncles, {"hash":buncle["hash"]}, {"$set":buncle}, block_height = current_height, upsert = True)
+        return miners
 
-    def process_tx(self, tx, timestamp, repeat_check):
+    def process_tx(self, tx, timestamp):
         # merge tx receipt data
         receipt = self.rpc_cli.call(constant.METHOD_GET_TX_RECEIPT, tx['hash'])
         receipt_useful_field = ['cumulativeGasUsed', 'contractAddress', 'gasUsed', 'logs']
@@ -194,60 +217,35 @@ class BlockHandler(object):
             if k in receipt_useful_field:
                 tx[k] = v
         tx['timestamp'] = timestamp
-        repeat = False
-
+        
         # apply tx
         try:
-            # for the block, those tx may been applied since last execution
-            # which need repeat-check
-            if repeat_check and self.db_proxy.get(FLAGS.accounts, 
-                {"address":tx["from"], "tx_out" : {"$elemMatch": {"$eq" : tx["hash"] }}}, block_height = self.blk_number):
-                self.logger.info("tx: %s has been add to account %s" % (tx['hash'], tx['from']))
-                repeat = True
-            else:
-                # transaction fee
-                gas_cost = utils.convert_to_int(tx['gasUsed']) * utils.convert_to_int(tx["gasPrice"])
-                # transfer amount
-                value = utils.convert_to_int(tx['value'])
-                total = utils.unit_convert(gas_cost + value)
-                operation1 = {
-                    "$addToSet" : {"tx_out": tx["hash"]},
-                    "$set" : {"address" : tx["from"]},
-                    "$inc" : {"balance" : -1 * total}
+            operation = {
+                "$addToSet" : {"tx_out": tx["hash"]},
+                "$set" : {"address" : tx["from"]},
+            }
+            self.db_proxy.update(FLAGS.accounts, {"address":tx["from"]}, operation, block_height = self.blk_number, upsert = True)
+
+            
+            if tx['contractAddress']:
+                # contract creation transaction
+                code = self.rpc_cli.call(constant.METHOD_GET_CODE, tx['contractAddress'], "latest")
+                operation = {
+                    "$set" : {"address" : tx["contractAddress"], "is_contract" : 1, "code" : code},
+                    "$addToSet" : {"tx_in": tx["hash"]},
                 }
-                self.db_proxy.update(FLAGS.accounts, {"address":tx["from"]}, operation1, block_height = self.blk_number, upsert = True)
+                self.db_proxy.update(FLAGS.accounts, {"address":tx["contractAddress"]}, operation, block_height = self.blk_number, upsert = True)
 
-            if repeat_check and self.db_proxy.get(FLAGS.accounts, 
-                {"address":tx["to"], "tx_in" : {"$elemMatch": { "$eq": tx["hash"] }}}, block_height = self.blk_number):
-                self.logger.info("tx: %s has been add to account %s" % (tx['hash'], tx['to']))
-                repeat = True
             else:
-                if tx['contractAddress']:
-                    # contract creation transaction
-                    code = self.rpc_cli.call(constant.METHOD_GET_CODE, tx['contractAddress'], "latest")
-                    tx["contractAddress"] = tx["contractAddress"]
-                    value = utils.convert_to_int(tx['value'])
-                    balance = utils.unit_convert(value)
-                    operation2 = {
-                        "$set" : {"address" : tx["contractAddress"], "is_contract" : 1, "code" : code},
-                        "$addToSet" : {"tx_in": tx["hash"]},
-                        "$inc" : {"balance" : balance}
-                    }
-                    self.db_proxy.update(FLAGS.accounts, {"address":tx["contractAddress"]}, operation2, block_height = self.blk_number, upsert = True)
-
-                else:
-                    value = utils.convert_to_int(tx['value'])
-                    balance = utils.unit_convert(value)
-                    operation2 = {
-                        "$addToSet" : {"tx_in": tx["hash"]},
-                        "$set" : {"address" : tx["to"]},
-                        "$inc" : {"balance" : balance}
-                    }
-                    self.db_proxy.update(FLAGS.accounts, {"address":tx["to"]}, operation2, block_height = self.blk_number, upsert = True)
+                operation = {
+                    "$addToSet" : {"tx_in": tx["hash"]},
+                    "$set" : {"address" : tx["to"]},
+                }
+                self.db_proxy.update(FLAGS.accounts, {"address":tx["to"]}, operation, block_height = self.blk_number, upsert = True)
 
             # always insert the tx after this tx has been process
-            if repeat:
-                gas_cost = utils.convert_to_int(tx['gasUsed']) * utils.convert_to_int(tx["gasPrice"])
+            
+            gas_cost = utils.convert_to_int(tx['gasUsed']) * utils.convert_to_int(tx["gasPrice"])
             tx['fee'] = utils.unit_convert(gas_cost)
             self.db_proxy.update(FLAGS.txs, {"hash" : tx["hash"]}, {"$set":tx}, block_height = self.blk_number, upsert = True)
             return tx['fee']
@@ -258,7 +256,6 @@ class BlockHandler(object):
 
     def revert(self, block, tx_list):
         operation = {
-            "$inc" : {"balance" : block['reward'] * -1},
             "$pull" : {"mine" : block['hash']},
         }
         self.db_proxy.update(FLAGS.accounts, {"address":block["miner"]}, operation, block_height = self.blk_number)
@@ -269,42 +266,36 @@ class BlockHandler(object):
             self.revert_tx(tx, self.blk_number)
         
     def revert_uncle(self, block):
+        miners = []
         current_height = block['number']
         for _, uncle in enumerate(block['uncles']):
             buncle = self.db_proxy.get(FLAGS.uncles, {"mainNumber":current_height, "hash": uncle}, block_height = current_height, multi = False)
             if buncle:
+                miners.append(buncle["miner"])
                 operation = {
                     "$set" : {"address" : buncle["miner"]},
-                    "$inc" : {"balance" : -1 * buncle["reward"]},
                     "$pull" : {"uncles" : buncle['hash']}
                 }
                 self.db_proxy.update(FLAGS.accounts, {"address":buncle["miner"]}, operation, block_height = current_height, upsert = True)
                 self.db_proxy.delete(FLAGS.uncles, {"mainNumber":current_height, "hash":uncle}, block_height = current_height)
-
+        return miners
     
     def revert_tx(self, tx, block_height):
         try:        
-            fee = tx['fee']
-            value = utils.convert_to_int(tx['value'])
-            total = utils.unit_convert(value) + fee
-
-            operation1 = {
+            operation = {
                 "$pull" : {"tx_out": tx["hash"]},
-                "$inc" : {"balance" : total}
             }
-            self.db_proxy.update(FLAGS.accounts, {"address":tx["from"]}, operation1, block_height = block_height)
+            self.db_proxy.update(FLAGS.accounts, {"address":tx["from"]}, operation, block_height = block_height)
 
             if tx['contractAddress']:
                 # contract creation transaction
                 self.db_proxy.delete(FLAGS.accounts, {"address": tx["contractAddress"]}, block_height = block_height)
 
             else: 
-                balance = utils.unit_convert(value)
-                operation2 = {
+                operation = {
                     "$pull" : {"tx_in": tx["hash"]},
-                    "$inc" : {"balance" : -1 * balance}
                 }
-                self.db_proxy.update(FLAGS.accounts, {"address":tx["to"]}, operation2, block_height = block_height)
+                self.db_proxy.update(FLAGS.accounts, {"address":tx["to"]}, operation, block_height = block_height)
 
             self.db_proxy.delete(FLAGS.txs, {"hash" : tx["hash"]}, block_height = block_height)
 
@@ -312,4 +303,27 @@ class BlockHandler(object):
             self.logger.error(e)
             return False
 
+    def sync_balance():
+        account_table_n = self.db_proxy.get_table_count(FLAGS.accounts)
+        for index in range(account_table_n):
+            table_name = FLAGS.accounts + str(index)
+            accounts = self.db_proxy.get(table_name, None, multi = True, projection = {"address":1})
+            self.set_balance(accounts, index * FLAGS.table_capacity)
 
+    def set_balance(self, accounts, block_height):
+        accounts = list(accounts)
+        while len(accounts) > 0:
+            try:
+                balance = self.rpc_cli.call(constant.METHOD_GET_BALANCE, accounts[0], block_height)
+                if balance:
+                    
+                    operation = {
+                        "$set" : {"balance" : balance, "address":accounts[0]}
+                    }
+                    self.db_proxy.update(FLAGS.accounts, {"address": accounts[0]}, operation, block_height = block_height, upsert = True)
+                else:
+                    self.logger.info("request %s balance failed!" % accounts[0])
+                accounts.pop(0)
+            except:
+                accounts.append(accounts(0))
+           

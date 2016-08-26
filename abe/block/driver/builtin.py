@@ -56,7 +56,7 @@ class BuiltinDriver(base.Base):
             if uncheck_blocks is None:
                 return
         except AttributeError, e:
-            return False
+            return 
 
         numbers = [item['number'] for item in uncheck_blocks]
         min = uncheck_blocks[-1]['number']
@@ -65,28 +65,21 @@ class BuiltinDriver(base.Base):
         for i in range(min, max):
             if i not in numbers:
                 miss.append(i)
-        
-        up_limit = self.net_block_number - 1 if max + 10 * FLAGS.greenlet_num >= self.net_block_number else max + 10 * FLAGS.greenlet_num
-
-        future = [i for i in range(max + 1, up_limit + 1)]
-        all = []
-        all.extend(miss)
-        all.extend(future)
+                
         handler = BlockHandler(self.rpc_cli, self.logger, self.db_proxy)
 
         self.logger.info("totaly %d blocks missing" % len(miss))
-        self.logger.info("totaly %d future block" % len(future))
 
-        while len(all) > 0:
-            if not handler.execute(all[0], repeat_check = True, fork_check = False):
-                all.append(all[0])
-            all.pop(0)
+        while len(miss) > 0:
+            if not handler.execute(miss[0], fork_check = False):
+                miss.append(miss[0])
+            miss.pop(0)
         return True
 
     def fork_check_last_block(self):
         if self.db_block_number == 0:return 
         block_handler = BlockHandler(self.rpc_cli, self.logger, self.db_proxy)
-        block_handler.execute(self.db_block_number, repeat_check = False, fork_check = True)
+        block_handler.execute(self.db_block_number, fork_check = True)
 
     def synchronize(self):
         self.initialize()
@@ -94,12 +87,8 @@ class BuiltinDriver(base.Base):
             self.add_indexes(0)
             self.add_genesis_data()
             self.run(1, self.net_block_number)
-
-        elif self.db_block_number + 10 * FLAGS.greenlet_num + 1 < self.net_block_number:
-            self.run(self.db_block_number + 10 * FLAGS.greenlet_num + 1, self.net_block_number)
-        
         else:
-            self.run(self.net_block_number, self.net_block_number)
+            self.run(self.db_block_number+1, self.net_block_number)
 
         self.listen()
         self.wait()
@@ -149,11 +138,11 @@ class BuiltinDriver(base.Base):
     @signal_watcher
     def pending_processor(self, queue):
         logger.info("begin process pending blocks")
-        block_handler = BlockHandler(self.rpc_cli, self.logger, self.db_proxy)
+        block_handler = BlockHandler(self.rpc_cli, self.logger, self.db_proxy, sync_balance = True)
         while True:
             block = queue.get()
             # need fork-check
-            block_handler.execute(block, repeat_check = False, fork_check = True)
+            block_handler.execute(block, fork_check = True)
 
     def run(self, begin, end):
         self.logger.info("synchronize start, from %d to %d" % (begin, end))
@@ -171,8 +160,12 @@ class BuiltinDriver(base.Base):
 
     def wait(self):
         self.wait_worker_finish()
-        self.logger.info("worker finish. process pending blocks")
+        self.logger.info("worker finish. start sync balance, it can take a long time")
         
+        block_handler = BlockHandler(self.rpc_cli, self.logger, self.db_proxy)
+        block_handler.sync_balance()
+
+        self.logger.info("sync balance finish. start to handler pending blocks")
         self.pending = Process(target = self.pending_processor, args = (self.share_queue,))
         self.pending.daemon = True
         self.pending.start()
@@ -231,7 +224,7 @@ class Synchronizor(base.Base):
 
         while True:
             # failed, process this block again
-            if handler.execute(number, repeat_check = False, fork_check = False):
+            if handler.execute(number, fork_check = False):
                 break
             else:
                 time.sleep(FLAGS.poll_interval)
