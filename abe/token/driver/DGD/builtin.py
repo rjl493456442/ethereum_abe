@@ -89,7 +89,7 @@ class BuiltinDriver(base.TokenBuiltinBase):
             "transactionHash" : log["transactionHash"],
             "block" : int(log["blockNumber"], 16),
             "type" : self.event
-        }, multi = True)
+        })
 
         # update balance
         # TODO parse demical of token
@@ -122,7 +122,7 @@ class BuiltinDriver(base.TokenBuiltinBase):
             "transactionHash" : log["transactionHash"],
             "block" : int(log["blockNumber"], 16),
             "type" : self.event
-        }, multi = True)
+        }, multi = False)
 
         # update balance
         # TODO parse demical of token

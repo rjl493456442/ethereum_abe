@@ -5,6 +5,7 @@ METHOD_BLOCK_NUMBER = "eth_blockNumber"
 METHOD_GET_TX_RECEIPT = "eth_getTransactionReceipt"
 METHOD_GET_CODE = "eth_getCode"
 METHOD_GET_TX_BY_HASH = "eth_getTransactionByHash"
+METHOD_GET_BALANCE = "eth_getBalance"
 
 METHOD_NEW_FILTER = "eth_newFilter"
 METHOD_NEW_BLOCK_FILTER = "eth_newBlockFilter"

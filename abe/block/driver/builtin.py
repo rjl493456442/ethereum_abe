@@ -42,7 +42,6 @@ class BuiltinDriver(base.Base):
         res = self.db_proxy.search(FLAGS.blocks, None, multi = True, limit = 1, ascend = False, sort_key = "number") 
         if not res:
             self._db_block_number = 0
-            self.add_indexes(0)
         else:
             self._db_block_number = res[0]['number']
 
@@ -85,14 +84,14 @@ class BuiltinDriver(base.Base):
         return True
 
     def fork_check_last_block(self):
-        if self.db_block_number == 0:
-            return 
+        if self.db_block_number == 0:return 
         block_handler = BlockHandler(self.rpc_cli, self.logger, self.db_proxy)
         block_handler.execute(self.db_block_number, repeat_check = False, fork_check = True)
 
     def synchronize(self):
         self.initialize()
         if self.db_block_number == 0:
+            self.add_indexes(0)
             self.add_genesis_data()
             self.run(1, self.net_block_number)
 

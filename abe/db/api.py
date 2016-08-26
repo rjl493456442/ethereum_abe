@@ -14,22 +14,20 @@ class MongodbClient(object):
         else:
             self.conn = MongoClient(FLAGS.mongodb_host, FLAGS.mongodb_port, maxPoolSize=300, connect = False)        
 
-    def use_db(self, db_name, mongo_user = None, mongodb_password = None):
+
+    def use_db(self, db_name, mongo_user=None, mongodb_password=None):
         db = self.conn[db_name]
+        self._auth(db, mongo_user, mongodb_password)
         self.mc = db
-
     
-    def disconnect(self):
-        self.conn.close()
-
-    def reconnect(self):
-        if FLAGS.mongodb_remote_db:
-            # connect to remote db with username and pwd
-            url = "mongodb://%s:%s@%s:%s/%s" % (FLAGS.mongodb_user, FLAGS.mongodb_pwd, 
-                    FLAGS.mongodb_remote_host, FLAGS.mongodb_remote_port, FLAGS.mongodb_default_db)
-            self.conn = MongoClient(url, connect = False)
+    def _auth(self, db, mongo_user, mongodb_password):
+        if not mongo_user and not mongodb_password:
+            res = db.authenticate(FLAGS.mongodb_user, FLAGS.mongodb_password)
         else:
-            self.conn = MongoClient(FLAGS.mongodb_host, FLAGS.mongodb_port, maxPoolSize=300, connect = False)
+            res = db.authenticate(mongo_user, mongodb_password)
+        if not res:
+            raise Exception("Mongodb Authentication Fail")
+
 
     def get_one(self, table, cond):
         res = self.mc[table].find_one(cond)
