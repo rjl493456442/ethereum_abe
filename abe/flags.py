@@ -15,12 +15,11 @@ gflags.DEFINE_bool('MONGODB_ENABLE', True, 'switch')
 gflags.DEFINE_bool('mongodb_remote_db', False, '')
 gflags.DEFINE_string('mongodb_remote_host', '192.168.188.2', 'mongodb remote host')
 gflags.DEFINE_string('mongodb_remote_port',  27017, 'mongodb remote port')
-gflags.DEFINE_string('mongodb_user', 'jialeirong', 'mongodb user')
-gflags.DEFINE_string('mongodb_pwd', '123456', 'mongodb pwd')
-
+gflags.DEFINE_string('mongodb_user', 'abe', 'mongodb user')
+gflags.DEFINE_string('mongodb_password', '14cZMQk89mRYQkDEj8Rn25AnGoBi5H6uer', 'mongodb host')
 gflags.DEFINE_string('mongodb_host', 'localhost', 'mongodb host')
 gflags.DEFINE_string('mongodb_port',  27017, 'mongodb port')
-gflags.DEFINE_string('mongodb_default_db', 'blockchain', 'mongodb db')
+gflags.DEFINE_string('mongodb_default_db', 'ethereum', 'mongodb db')
 
 #mongodb table
 gflags.DEFINE_string('blocks', 'blocks', 'mongodb table')
