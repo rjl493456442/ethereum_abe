@@ -36,6 +36,7 @@ class Base(object):
 
         uncles_indexs = [
             [("mainNumber", pymongo.ASCENDING),("hash", pymongo.ASCENDING)],
+            [("hash", pymongo.ASCENDING)],
         ]
         for index in uncles_indexs:
             self.db_proxy.add_index(FLAGS.uncles, index, block_height = block_height)
