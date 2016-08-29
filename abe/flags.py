@@ -29,7 +29,9 @@ gflags.DEFINE_string('accounts', 'accounts', 'mongodb table')
 gflags.DEFINE_string('token_basic', 'token_basic', 'mongodb table')
 gflags.DEFINE_string('token_prefix', 'token_', 'mongodb table')
 gflags.DEFINE_string('balance_prefix', 'balance_', 'mongodb table')
+gflags.DEFINE_string('meta', 'meta', 'mongodb table')
 gflags.DEFINE_integer('table_capacity', 100000, 'table capacity')
+
 
 #mongodb init index
 gflags.DEFINE_list('blocks_index', ['number', 'hash'], 'mongodb index')

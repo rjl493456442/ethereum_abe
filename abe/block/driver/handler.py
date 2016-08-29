@@ -106,7 +106,7 @@ class BlockHandler(object):
         accounts.append(block['miner'])
         
         if self.sync_balance:
-            self.set_balance(accounts, self.blk_number)
+            self.set_balance(accounts, self.blk_number, self.blk_number, record = True)
     
         # insert block
         self.db_proxy.update(FLAGS.blocks, {"number":block['number']}, {"$set":block}, block_height = self.blk_number, upsert = True)
@@ -178,7 +178,7 @@ class BlockHandler(object):
         accounts.append(old_block["miner"])
         # set balance
         if self.sync_balance:
-            self.set_balance(accounts, self.blk_number)
+            self.set_balance(accounts, self.blk_number, self.blk_number, record = True)
 
         self.db_proxy.update(FLAGS.blocks, {"hash": new_block['hash']}, {"$set":new_block}, block_height = self.blk_number, upsert = True)
 
@@ -303,20 +303,34 @@ class BlockHandler(object):
             self.logger.error(e)
             return False
 
-    def sync_balance():
+    def _sync_balance(self, net_last_block):
+        res = self.db_proxy.get(FLAGS.meta, {"sync_record":"ethereum"}, multi = False)
+        if res and res.has_key("last_sync_block"):
+            last_sync_block = res['last_sync_block']
+        else:
+            last_sync_block = 0
+        
         account_table_n = self.db_proxy.get_table_count(FLAGS.accounts)
-        for index in range(account_table_n):
+
+        for index in range(last_sync_block / FLAGS.table_capacity, account_table_n):
             table_name = FLAGS.accounts + str(index)
             accounts = self.db_proxy.get(table_name, None, multi = True, projection = {"address":1})
-            self.set_balance(accounts, index * FLAGS.table_capacity)
+            accounts = [acct["address"] for acct in accounts]
+            self.set_balance(accounts, index * FLAGS.table_capacity, net_last_block)
 
-    def set_balance(self, accounts, block_height):
+        operation = {
+            "$set": {"last_sync_block":net_last_block},
+        }
+        self.db_proxy.update(FLAGS.meta, {"sync_record":"ethereum"}, operation, multi = False, upsert = True)
+
+    def set_balance(self, accounts, block_height, block_number, record = False):
+        ''' block number use to specify rpc block param; block_height use to specify the slice of mongodb'''
+
         accounts = list(accounts)
         while len(accounts) > 0:
             try:
-                balance = self.rpc_cli.call(constant.METHOD_GET_BALANCE, accounts[0], block_height)
-                if balance:
-                    
+                balance = self.rpc_cli.call(constant.METHOD_GET_BALANCE, accounts[0], block_number)
+                if balance:    
                     operation = {
                         "$set" : {"balance" : balance, "address":accounts[0]}
                     }
@@ -324,6 +338,9 @@ class BlockHandler(object):
                 else:
                     self.logger.info("request %s balance failed!" % accounts[0])
                 accounts.pop(0)
-            except:
-                accounts.append(accounts(0))
+            except Exception, e:
+                self.logger.info(e)
+                accounts.append(accounts[0])
+        if record:
+            self.db_proxy.update(FLAGS.meta, {"sync_record":"ethereum"}, {"$set": {"last_sync_block":block_height} }, multi = False, upsert = True)
            

@@ -113,7 +113,7 @@ class BlockTest(unittest.TestCase):
         txs = self.db_proxy.search(FLAGS.txs, {"blockNumber": hex(2074903)}, multi = True)
         self.assertEqual(len(txs), 0)
 
-    '''
+    
     def test_add_genesis(self):
         FLAGS.genesis_data = "../genesisdata/genesis_frontier.json"
         driver = builtin.BuiltinDriver()
@@ -127,7 +127,7 @@ class BlockTest(unittest.TestCase):
         # 1 tx
         res = self.db_proxy.get(FLAGS.txs, None, block_height=0, multi = True)
         self.assertEqual(len(res), 8893)
-    '''
+    
     def test_process_tx(self):
         # block 1700002
         tx_hash = "0xa2d7bdf90e507979d7005399f2af77918a538d5288076b0e2a1308e7a419f1bc"
@@ -253,6 +253,17 @@ class BlockTest(unittest.TestCase):
         for _,acct in enumerate(accts):
             res = self.db_proxy.get(FLAGS.accounts, {"address":acct}, multi = False, block_height = block_num)
             self.assertEqual(res['balance'], balances[_])
+
+    def test_sync_balance(self):
+        # insert account data
+        accounts = ["0x3282791d6fd713f1e94f4bfd565eaa78b3a0599d", "0x17961d633bcf20a7b029a7d94b7df4da2ec5427f", "0x493a67fe23decc63b10dda75f3287695a81bd5ab"]
+
+        for _, acct in enumerate(accounts):
+            self.db_proxy.insert(FLAGS.accounts, {"address":acct}, block_height = _ * FLAGS.table_capacity)
+
+        self.handler._sync_balance(100)
+        res = self.db_proxy.get(FLAGS.meta, {"sync_record":"ethereum"}, multi = False)
+        self.assertEqual(res["last_sync_block"], 100)
 
     def tearDown(self):
         self.db_proxy.drop_db(FLAGS.mongodb_default_db)

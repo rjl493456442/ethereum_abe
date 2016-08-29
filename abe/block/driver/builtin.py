@@ -163,7 +163,7 @@ class BuiltinDriver(base.Base):
         self.logger.info("worker finish. start sync balance, it can take a long time")
         
         block_handler = BlockHandler(self.rpc_cli, self.logger, self.db_proxy)
-        block_handler.sync_balance()
+        block_handler._sync_balance(self.net_block_number)
 
         self.logger.info("sync balance finish. start to handler pending blocks")
         self.pending = Process(target = self.pending_processor, args = (self.share_queue,))
