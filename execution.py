@@ -40,6 +40,7 @@ def main(argv):
             if shardId != -1:
                 block_api = BlockAPI()
                 block_api.check(shardId, sync_balance)
+                return
 
         elif FLAGS.sync_block_forever:
             block_api = BlockAPI()
@@ -55,7 +56,7 @@ def main(argv):
                 return
 
         
-        print '%s\nUsage: %s args\n%s' % (e, sys.argv[0], FLAGS)
+        print 'Usage: %s args\n%s' % (sys.argv[0], FLAGS)
         sys.exit(1)
 
     except gflags.FlagsError, e:

@@ -86,8 +86,10 @@ class BuiltinDriver(base.Base):
                 self.logger.info("no blocks in specific range")
             else:
                 numbers = [item['number'] for item in blocks]
+                min = shardId * FLAGS.table_capacity
+                max = (shardId+1) * FLAGS.table_capacity
                 miss = []
-                for i in range(begin, end):
+                for i in range():
                     if i not in numbers:
                         miss.append(i)
                         
