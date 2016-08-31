@@ -346,6 +346,25 @@ class BlockHandler(object):
         }
         self.db_proxy.update(FLAGS.meta, {"sync_record":"ethereum"}, operation, multi = False, upsert = True)
 
+    def _sync_balance(self, begin, end):
+        account_table_n = self.db_proxy.get_table_count(FLAGS.accounts)
+        from_idx = begin / FLAGS.table_capacity
+        end_idx = (end-1) / FLAGS.table_capacity
+        if from_idx >= account_table_n or end_idx >= account_table_n or from_idx > end_idx:
+            self.logger.info("Invalid params specified")
+            return
+
+        for index in range(from_idx, end_idx+1):
+            table_name = FLAGS.accounts + str(index)
+            accounts = self.db_proxy.get(table_name, None, multi = True, projection = {"address":1})
+            accounts = [acct["address"] for acct in accounts]
+            self.set_balance(accounts, index * FLAGS.table_capacity, end-1)
+
+        operation = {
+            "$set": {"last_sync_block":end-1},
+        }
+        self.db_proxy.update(FLAGS.meta, {"sync_record":"ethereum"}, operation, multi = False, upsert = True)
+
     def _sync_internal_tx(self):
         pass
 

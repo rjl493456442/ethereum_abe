@@ -24,5 +24,16 @@ class BlockAPI(object):
 
 	def check(self, begin, end, sync_balance):
 		''' check the  blocks in range [begin, end) , if miss, get it back; if duplicate remove it'''
-		self.driver.check(begin, end)
+		self.driver.check(begin, end, sync_balance)
 
+	def check(self, shardId,sync_balance):
+		''' check the  blocks in range [begin, end) , if miss, get it back; if duplicate remove it'''
+		self.driver.check(shardId, sync_balance)
+
+	def sync_balance(self):
+		''' sync the  remain accounts since last sync '''
+		pass
+
+	def sync_balance(self, begin, end):
+		''' sync the  accounts in range [begin, end)'''
+		self.driver.set_balance(begin, end)

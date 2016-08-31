@@ -41,10 +41,46 @@ class BuiltinDriver(base.Base):
     def synchronize(self, begin, end, sync_balance):
         self.run(begin, end-1, sync_balance)
 
+    def set_balance(self):
+        pass
+
+    def set_balance(self, begin, end):
+        time_start = time.time()
+        handler = BlockHandler(self.rpc_cli, self.logger, self.db_proxy)
+        handler._sync_balance(begin, end) 
+        self.logger.info("sync balance finish, totally elapsed:%f", time.time()-time_start)
+
     def check(self, begin, end, sync_balance):
         try:
             blocks = self.db_proxy.search(FLAGS.blocks, None, projection = {"number":1},
                     multi = True, skip = begin ,limit = end-begin, ascend = True, sort_key = "number")
+            
+            if blocks is None:
+                self.logger.info("no blocks in specific range")
+            else:
+                numbers = [item['number'] for item in blocks]
+                miss = []
+                for i in range(begin, end):
+                    if i not in numbers:
+                        miss.append(i)
+                        
+                handler = BlockHandler(self.rpc_cli, self.logger, self.db_proxy, sync_balance)
+
+                self.logger.info("totaly %d blocks missing" % len(miss))
+
+                while len(miss) > 0:
+                    if not handler.execute(miss[0], fork_check = False):
+                        miss.append(miss[0])
+                    miss.pop(0)
+                return True
+                        
+        except Exception, e:
+            self.logger.info(e)
+
+    def check(self, shardId, sync_balance):
+        try:
+            blocks = self.db_proxy.get(FLAGS.blocks, None, projection = {"number":1},
+                    multi = True, block_height = shardId * FLAGS.table_capacity)
             
             if blocks is None:
                 self.logger.info("no blocks in specific range")

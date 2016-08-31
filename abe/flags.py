@@ -74,6 +74,7 @@ gflags.DEFINE_bool("check_block", False, 'start check block service')
 gflags.DEFINE_bool("sync_balance", False, 'whether sync balance after sync block finish')
 gflags.DEFINE_integer("begin", -1, 'start sync block from')
 gflags.DEFINE_integer("end", -1, 'start sync block to')
+gflags.DEFINE_integer("shardId", -1, 'shardId')
 
 gflags.DEFINE_bool("sync_block_forever", False, 'start sync block service')
 

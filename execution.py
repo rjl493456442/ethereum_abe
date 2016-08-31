@@ -30,11 +30,16 @@ def main(argv):
         elif FLAGS.check_block:
             begin = FLAGS.begin
             end = FLAGS.end
+            shardId = FLAGS.shardId
             sync_balance = FLAGS.sync_balance
             if begin != -1 and end != -1 and end > begin:
                 block_api = BlockAPI()
                 block_api.check(begin, end, sync_balance)
                 return
+
+            if shardId != -1:
+                block_api = BlockAPI()
+                block_api.check(shardId, sync_balance)
 
         elif FLAGS.sync_block_forever:
             block_api = BlockAPI()
