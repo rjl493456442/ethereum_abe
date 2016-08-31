@@ -28,9 +28,7 @@ class BlockHandler(object):
             method_name = constant.METHOD_GET_BLOCK_BY_HASH
 
         try:
-            time_start = time.time()
             blk = self.rpc_cli.call(method_name, blockinfo, True)
-            print "rpc req block elapsed :%f" % (time.time() - time_start)
             if blk:
                 self.blk_number = utils.convert_to_int(blk['number'])
 
@@ -124,23 +122,18 @@ class BlockHandler(object):
             "$addToSet" : {"mine": block["hash"]},
             "$set" : {"address" : block["miner"]},
         }
-        time_start = time.time()
+
         self.db_proxy.update(FLAGS.accounts, {"address":block["miner"]}, operation, block_height = self.blk_number, upsert = True)
-        print "update miner elapsed :%f" % (time.time() - time_start)
         # process uncle
         uncle_miners = self.process_uncle(block)
         accounts.extend(uncle_miners)
         accounts.append(block['miner'])
         
         if self.sync_balance:
-            time_start = time.time()
             self.set_balance(accounts, self.blk_number, self.blk_number, record = True)
-            print "sync balance for block elapsed :%f" % (time.time() - time_start)
     
         # insert block
-        time_start = time.time()
         self.db_proxy.update(FLAGS.blocks, {"number":block['number']}, {"$set":block}, block_height = self.blk_number, upsert = True)
-        print "update block elapsed :%f" % (time.time() - time_start)
         return True
 
     def process_fork(self, old_block, new_block):
@@ -241,7 +234,6 @@ class BlockHandler(object):
         return miners
 
     def process_tx(self, tx, timestamp):
-        time_start = time.time()
         # merge tx receipt data
         receipt = self.rpc_cli.call(constant.METHOD_GET_TX_RECEIPT, tx['hash'])
         receipt_useful_field = ['cumulativeGasUsed', 'contractAddress', 'gasUsed', 'logs']
@@ -280,7 +272,6 @@ class BlockHandler(object):
             gas_cost = utils.convert_to_int(tx['gasUsed']) * utils.convert_to_int(tx["gasPrice"])
             tx['fee'] = utils.unit_convert(gas_cost)
             self.db_proxy.update(FLAGS.txs, {"hash" : tx["hash"]}, {"$set":tx}, block_height = self.blk_number, upsert = True)
-            print "process tx elapsed :%f" % (time.time() - time_start)
             return tx['fee']
 
         except Exception, e:

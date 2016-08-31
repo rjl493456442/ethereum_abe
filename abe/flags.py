@@ -40,7 +40,7 @@ gflags.DEFINE_string('accounts_index', 'address', 'mongodb index')
 gflags.DEFINE_string('balance_index', 'account', 'mongodb index')
 
 #rpc
-gflags.DEFINE_string('rpc_host', '121.201.29.105', 'mongodb host')
+gflags.DEFINE_string('rpc_host', '139.162.59.207', 'mongodb host')
 gflags.DEFINE_string('rpc_port',  8545, 'mongodb port')
 gflags.DEFINE_integer('poll_interval', 5, 'poll interval')
 
