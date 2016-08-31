@@ -47,10 +47,8 @@ gflags.DEFINE_integer('poll_interval', 5, 'poll interval')
 #multiprocess
 gflags.DEFINE_integer('process_num', 1, 'process num')
 
-
 #gevent
-gflags.DEFINE_integer('greenlet_num', 20, 'greenlet num')
-gflags.DEFINE_integer('threshold', 200, 'greenlet num')
+gflags.DEFINE_integer('greenlet_num', 5, 'greenlet num')
 
 #log
 gflags.DEFINE_string('DEBUG_LOG', 'logs/debug.log', 'location')

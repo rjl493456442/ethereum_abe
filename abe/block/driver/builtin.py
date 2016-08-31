@@ -32,50 +32,38 @@ class BuiltinDriver(base.Base):
 
     ''' api '''    
     def synchronize(self):
+        '''
+        synchronize block forever: 
+            step1, set listener to gather all pending block hashes;
+            step2, sync blocks parallelly in range[last sync block+1, last mined block in network]
+            step3, sync account balance in range[last sync block+1, last mined block in network]
+            step4, start loop to handle the pending block gathered by listener(set balance together)
+        '''
         self.initialize()
+
+        # set listener
+        self.logger.info("set Listener")
+        self.listen()
+
         # get block parallelly
         self.run(self.db_block_number+1, self.net_block_number, sync_balance = True)
+        
         # get block in sequence
         self.start_loop()
 
     def synchronize(self, begin, end, sync_balance):
+        '''
+        synchronize block in range[begin, end):
+        the sync_balance flag is set, sync all related account balance after parallelly synchronize
+        '''
         self.run(begin, end-1, sync_balance)
 
-    def set_balance(self):
-        pass
-
-    def set_balance(self, begin, end):
+    def set_balance(self, shardId):
         time_start = time.time()
         handler = BlockHandler(self.rpc_cli, self.logger, self.db_proxy)
-        handler._sync_balance(begin, end) 
+        handler._sync_balance(shardId, True) 
         self.logger.info("sync balance finish, totally elapsed:%f", time.time()-time_start)
 
-    def check(self, begin, end, sync_balance):
-        try:
-            blocks = self.db_proxy.search(FLAGS.blocks, None, projection = {"number":1},
-                    multi = True, skip = begin ,limit = end-begin, ascend = True, sort_key = "number")
-            
-            if blocks is None:
-                self.logger.info("no blocks in specific range")
-            else:
-                numbers = [item['number'] for item in blocks]
-                miss = []
-                for i in range(begin, end):
-                    if i not in numbers:
-                        miss.append(i)
-                        
-                handler = BlockHandler(self.rpc_cli, self.logger, self.db_proxy, sync_balance)
-
-                self.logger.info("totaly %d blocks missing" % len(miss))
-
-                while len(miss) > 0:
-                    if not handler.execute(miss[0], fork_check = False):
-                        miss.append(miss[0])
-                    miss.pop(0)
-                return True
-                        
-        except Exception, e:
-            self.logger.info(e)
 
     def check(self, shardId, sync_balance):
         try:
@@ -89,7 +77,7 @@ class BuiltinDriver(base.Base):
                 min = shardId * FLAGS.table_capacity
                 max = (shardId+1) * FLAGS.table_capacity
                 miss = []
-                for i in range():
+                for i in range(min, max):
                     if i not in numbers:
                         miss.append(i)
                         
@@ -130,6 +118,13 @@ class BuiltinDriver(base.Base):
             return False
 
     def initialize(self):
+        '''
+        (1) init share_queue
+        (2) get last sync block number and last mined block number in network
+        (3) get miss blocks since last synchronize
+        (4) check last sync block whether is been reorg
+        '''
+        self.share_queue = Queue()
         self.get_status()
         self.get_miss()
         self.fork_check_last_block()
@@ -163,26 +158,38 @@ class BuiltinDriver(base.Base):
 
     def fork_check_last_block(self):
         if self.db_block_number == 0:return 
-        block_handler = BlockHandler(self.rpc_cli, self.logger, self.db_proxy)
+        block_handler = BlockHandler(self.rpc_cli, self.logger, self.db_proxy, sync_balance = True)
         block_handler.execute(self.db_block_number, fork_check = True)
 
-    
+    def listen(self):
+        self.listener = Process(target = self.listener_proc, args = (self.share_queue,))
+        self.listener.daemon = True
+        self.listener.start()
 
-    def pending_blocks(self):
-        if self.net_block_number is not None and self.db_block_number is not None:
-            if isinstance(self.net_block_number, int) and isinstance(self.db_block_number, int):
-                return self.net_block_number - self.db_block_number
-        return None
-
+    @signal_watcher
+    def listener_proc(self, queue):
+        filter_id = self.rpc_cli.call(constant.METHOD_NEW_BLOCK_FILTER)
+        while True:
+            try:
+                res = self.rpc_cli.call(constant.METHOD_GET_FILTER_CHANGES, filter_id)
+                if res:
+                    # new blocks array
+                    self.logger.info("new blocks arrive: %s" % res)
+                    for block in res:
+                        queue.put(block)
+                else:
+                    time.sleep(FLAGS.poll_interval)
+            except:
+                # connect establish may be failed, just ignore it
+                time.sleep(FLAGS.poll_interval)
         
     def start_loop(self):
+        logger.info("begin loop handle")
+        block_handler = BlockHandler(self.rpc_cli, self.logger, self.db_proxy, sync_balance = True)
         while True:
-            self.get_status()
-            # sequence
-            block_handler = BlockHandler(self.rpc_cli, self.logger, self.db_proxy, sync_balance = True)
-            for block_num in range(self.db_block_number+1, self.net_block_number+1):
-                block_handler.execute(block_num, fork_check = True)
-
+            block = self.share_queue.get()
+            # need fork-check
+            block_handler.execute(block, fork_check = True)
 
     def run(self, begin, end, sync_balance):
         time_start = time.time()

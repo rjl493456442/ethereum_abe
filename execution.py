@@ -27,26 +27,26 @@ def main(argv):
                 block_api.synchronize(begin, end, sync_balance)
                 return
 
-        elif FLAGS.check_block:
-            begin = FLAGS.begin
-            end = FLAGS.end
-            shardId = FLAGS.shardId
-            sync_balance = FLAGS.sync_balance
-            if begin != -1 and end != -1 and end > begin:
-                block_api = BlockAPI()
-                block_api.check(begin, end, sync_balance)
-                return
-
-            if shardId != -1:
-                block_api = BlockAPI()
-                block_api.check(shardId, sync_balance)
-                return
-
         elif FLAGS.sync_block_forever:
             block_api = BlockAPI()
             block_api.synchronize()
             return
 
+        elif FLAGS.check_block:
+            shardId = FLAGS.shardId
+            sync_balance = FLAGS.sync_balance
+        
+            if shardId != -1:
+                block_api = BlockAPI()
+                block_api.check(shardId, sync_balance)
+                return
+
+        elif FLAGS.sync_balance:
+            shardId = FLAGS.shardId
+            if shardId != -1:
+                block_api = BlockAPI()
+                block_api.sync_balance(shardId)
+                return
 
         elif FLAGS.sync_token:
             if FLAGS.token != "":
@@ -54,8 +54,7 @@ def main(argv):
                 token_api = TokenAPI()
                 api.synchronize(FLAGS.token)
                 return
-
-        
+                        
         print 'Usage: %s args\n%s' % (sys.argv[0], FLAGS)
         sys.exit(1)
 
