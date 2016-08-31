@@ -128,7 +128,8 @@ class BuiltinDriver(base.Base):
                 return
         else:
             if os.path.isfile(log_path+"/tx.log"+str(shardId)):
-                
+                handler = LogHandler(self.db_proxy)
+                handler.run(log_path+"/tx.log"+str(shardId))
                 return
 
         self.logger.info("params not valid")

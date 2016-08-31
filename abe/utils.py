@@ -128,7 +128,7 @@ def regular_extract(line):
             "txhash" : '0x' + fields[6][8:-2],
             "from" : '0x' + fields[7][6:-2],
             "to" : '0x' + fields[8][4:-2],
-            "value" : int(fields[9][7:-2]),
+            "value" : fields[9][7:-2],
             "timestamp" : int(fields[10][6:-2]),
             "depth" : int(fields[11][7:-2]),
             "pc": int(fields[12][4:-2]),
