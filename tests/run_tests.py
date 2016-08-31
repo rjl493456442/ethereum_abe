@@ -2,8 +2,14 @@ import unittest
 import os
 from os import  sys, path
 sys.path.append(path.dirname(path.dirname(path.abspath(__file__))))
+from abe import flags
+FLAGS = flags.FLAGS
 
 def get_test_modules():
+    argv = FLAGS(sys.argv)
+    if FLAGS.test_all is False and len(FLAGS.test_case) == 0:
+        print 'Usage: %s  command [option]\n%s' % (sys.argv[0], FLAGS)
+
     modules = []
     discovery_paths = [
         (None, '.'),
@@ -14,6 +20,9 @@ def get_test_modules():
             if 'tests_' in f and '.pyc' not in f:
                 name, pfix = f.split('.')
                 tests, obj = name.split('_')
+                
+                if FLAGS.test_all is False and obj not in FLAGS.test_case: continue
+
                 mod = __import__(name)
                 
                 cls = getattr(mod, obj[0].upper()+obj[1:]+'Test') 

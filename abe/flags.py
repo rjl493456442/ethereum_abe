@@ -50,6 +50,7 @@ gflags.DEFINE_integer('process_num', 1, 'process num')
 
 #gevent
 gflags.DEFINE_integer('greenlet_num', 20, 'greenlet num')
+gflags.DEFINE_integer('threshold', 200, 'greenlet num')
 
 #log
 gflags.DEFINE_string('DEBUG_LOG', 'logs/debug.log', 'location')
@@ -69,8 +70,25 @@ gflags.DEFINE_string('precision', 'wei', 'precision')
 
 #cmd params
 gflags.DEFINE_bool("sync_block", False, 'start sync block service')
+gflags.DEFINE_bool("check_block", False, 'start check block service')
+gflags.DEFINE_bool("sync_balance", False, 'whether sync balance after sync block finish')
+gflags.DEFINE_integer("begin", -1, 'start sync block from')
+gflags.DEFINE_integer("end", -1, 'start sync block to')
+
+gflags.DEFINE_bool("sync_block_forever", False, 'start sync block service')
+
 gflags.DEFINE_bool("sync_token", False, 'start sync token service')
 gflags.DEFINE_string("token", "", "name of token to sync")
+
+#log need to monitor
+gflags.DEFINE_string("log_path", "", "location")
+gflags.DEFINE_string("internaltxlog", "tx.log", "log name")
+gflags.DEFINE_string("blocklog", "block.log", "log name")
+
+
+#test cmd
+gflags.DEFINE_bool('test_all', False, 'switch')
+gflags.DEFINE_list('test_case', [], 'test case')
 
 
 

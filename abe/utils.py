@@ -1,6 +1,7 @@
 import os
 import sys
 from abe import flags
+import re
 FLAGS = flags.FLAGS
 
 def import_class(import_str):
@@ -82,5 +83,76 @@ def unit_convert(num):
         radix = 1 * (10 ** 18)
     return num * 1.0 / radix
 
+def regular_extract(line):
+    '''
+        ## internal tx
+        <field name> - <offset> - <description>
+        log related     | 0 |       date time code line and etc
+        type            | 1 |       log entry type: (1)internaltx (2) error status
+        blocknumber     | 2 |       blocknumber
+        blockhash       | 3 |       blockhash
+        txhash          | 4 |       txhash
+        from            | 5 |       sender address
+        to              | 6 |       receive address
+        value           | 7 |       transfer value
+        timestamp       | 8 |       timestamp
+        depth           | 9 |       call depth
+        pc              | 10|       pc
+        callType        | 11|       invocation type: (1) call (2) callcode (3) create (4) suicide
+        error           | 12|       error msg while execution failed
+
+        ## error status
+        <field name> - <offset> - <description>
+        log related     | 0 |       date time code line and etc
+        type            | 1 |       log entry type: (1)internaltx (2) error status
+        blocknumber     | 2 |       blocknumber
+        blockHash       | 3 |       blockHash
+        txhash          | 4 |       txhash
+        depth           | 5 |       call depth
+        status          | 6 |       error msg while execution failed
+
+        ## block
+        <field name> - <offset> - <description>
+        log related     | 0 |       date time code line and etc
+        type            | 1 |       block type: (1)reorg block (2) side chain block
+        blocknumber     | 2 |       blocknumber
+        blockHash       | 3 |       blockHash
+
+    '''
+    fields = line.split(' ')
+    if fields[3] == "INTERNALTX":
+        info = {
+            "type" : 0,
+            "blocknumber" : int(fields[4][8:-2]),
+            "blockhash" : '0x' + fields[5][11:-2],
+            "txhash" : '0x' + fields[6][8:-2],
+            "from" : '0x' + fields[7][6:-2],
+            "to" : '0x' + fields[8][4:-2],
+            "value" : int(fields[9][7:-2]),
+            "timestamp" : int(fields[10][6:-2]),
+            "depth" : int(fields[11][7:-2]),
+            "pc": int(fields[12][4:-2]),
+            "calltype": fields[13][6:-2],
+            "error" : line[line.find("ERROR")+7:-2],
+        }
+    elif fields[3] == "EXERESULT":
+        info = {
+            "type" : 1,
+            "blocknumber" : int(fields[4][8:-2]),
+            "blockhash" : '0x' + fields[5][11:-2],
+            "txhash" : '0x' + fields[6][8:-2],
+            "depth" : int(fields[7][7:-2]),
+            "status" : line[line.find("STATUS")+8:-2],
+        }
+    elif fields[3] == "BLOCK":
+        info = {
+            "type" : 2,
+            "blocktype" : fields[4][6:-2],
+            "blockhash" : fields[5][6:-2],
+            "blocknumber" : fields[6][8:-2],
+        }
+    else:
+        info = None
+    return info
     
 

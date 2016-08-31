@@ -5,6 +5,7 @@ from pyethapp.rpc_client import JSONRPCClient
 from abe import flags
 import time
 from abe import utils
+import json
 FLAGS = flags.FLAGS
 
 class BlockHandler(object):
@@ -17,6 +18,10 @@ class BlockHandler(object):
 
     def execute(self, blockinfo, fork_check):
         if isinstance(blockinfo, int):
+            if blockinfo == 0:
+                self.process_genesis()
+                return True
+
             method_name = constant.METHOD_GET_BLOCK_BY_NUMBER
 
         elif isinstance(blockinfo, str) or isinstance(blockinfo, unicode):
@@ -52,8 +57,26 @@ class BlockHandler(object):
             self.logger.error(e)
             return False
     
-    def process_genesis(self, block):
-        ''' add genesis block to db '''
+    def process_genesis(self):
+        ''' add genesis block from file to db '''
+        filename = FLAGS.genesis_data
+        with open(filename, "r") as f:
+            data = json.load(f)
+            data['transactions'] = []
+            for to in data['alloc'].keys():
+                value = data['alloc'][to]['balance']
+                value = hex(int(value))
+                if value.endswith('L'): value = value[:-1]
+                data['transactions'].append({
+                    "hash" : "GENESIS_" + to,
+                    "from" : "GENESIS",
+                    "to" : '0x'+ to,
+                    "value" : value,
+                })
+
+            del data['alloc']
+        
+        block = data
         txs = block['transactions']
         timestamp = block['timestamp']
         
@@ -68,7 +91,7 @@ class BlockHandler(object):
             self.db_proxy.update(FLAGS.txs, {"hash":tx["hash"]}, {"$set":tx}, upsert = True, multi = False, block_height = 0)
 
         del block['transactions']
-        self.db_proxy.insert(FLAGS.blocks, block, block_height = 0)
+        self.db_proxy.update(FLAGS.blocks, {"number":0}, {"$set":block}, block_height = 0, upsert = True)
         return True
 
     def process_block(self, block):
@@ -312,7 +335,7 @@ class BlockHandler(object):
         
         account_table_n = self.db_proxy.get_table_count(FLAGS.accounts)
 
-        for index in range(last_sync_block / FLAGS.table_capacity, account_table_n):
+        for index in range((last_sync_block+1) / FLAGS.table_capacity, account_table_n):
             table_name = FLAGS.accounts + str(index)
             accounts = self.db_proxy.get(table_name, None, multi = True, projection = {"address":1})
             accounts = [acct["address"] for acct in accounts]
@@ -322,6 +345,9 @@ class BlockHandler(object):
             "$set": {"last_sync_block":net_last_block},
         }
         self.db_proxy.update(FLAGS.meta, {"sync_record":"ethereum"}, operation, multi = False, upsert = True)
+
+    def _sync_internal_tx(self):
+        pass
 
     def set_balance(self, accounts, block_height, block_number, record = False):
         ''' block number use to specify rpc block param; block_height use to specify the slice of mongodb'''

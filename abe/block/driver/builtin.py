@@ -29,6 +29,48 @@ class BuiltinDriver(base.Base):
         self.rpc_cli = JSONRPCClient(host = FLAGS.rpc_host, port = FLAGS.rpc_port, print_communication = False)
         super(BuiltinDriver, self).__init__()
 
+
+    ''' api '''    
+    def synchronize(self):
+        self.initialize()
+        # get block parallelly
+        self.run(self.db_block_number+1, self.net_block_number, sync_balance = True)
+        # get block in sequence
+        self.start_loop()
+
+    def synchronize(self, begin, end, sync_balance):
+        self.run(begin, end-1, sync_balance)
+
+    def check(self, begin, end, sync_balance):
+        try:
+            blocks = self.db_proxy.search(FLAGS.blocks, None, projection = {"number":1},
+                    multi = True, skip = begin ,limit = end-begin, ascend = True, sort_key = "number")
+            
+            if blocks is None:
+                self.logger.info("no blocks in specific range")
+            else:
+                numbers = [item['number'] for item in blocks]
+                miss = []
+                for i in range(begin, end):
+                    if i not in numbers:
+                        miss.append(i)
+                        
+                handler = BlockHandler(self.rpc_cli, self.logger, self.db_proxy, sync_balance)
+
+                self.logger.info("totaly %d blocks missing" % len(miss))
+
+                while len(miss) > 0:
+                    if not handler.execute(miss[0], fork_check = False):
+                        miss.append(miss[0])
+                    miss.pop(0)
+                return True
+                        
+        except Exception, e:
+            self.logger.info(e)
+
+
+    ''' internal method '''   
+
     @property
     def db_block_number(self):
         return self._db_block_number
@@ -37,19 +79,24 @@ class BuiltinDriver(base.Base):
     def net_block_number(self):
         return self._net_block_number
 
-    def initialize(self):
-        self._net_block_number = utils.convert_to_int(self.rpc_cli.call(constant.METHOD_BLOCK_NUMBER))
-        res = self.db_proxy.search(FLAGS.blocks, None, multi = True, limit = 1, ascend = False, sort_key = "number") 
-        if not res:
-            self._db_block_number = 0
-        else:
-            self._db_block_number = res[0]['number']
+    def get_status(self):
+        try:
+            self._net_block_number = utils.convert_to_int(self.rpc_cli.call(constant.METHOD_BLOCK_NUMBER))
+            res = self.db_proxy.search(FLAGS.blocks, None, multi = True, limit = 1, ascend = False, sort_key = "number") 
+            if not res:
+                self._db_block_number = 0
+            else:
+                self._db_block_number = res[0]['number']
+            return True
+        except:
+            return False
 
-        self.share_queue = Queue()
-        self.retrieve_missing_block()
+    def initialize(self):
+        self.get_status()
+        self.get_miss()
         self.fork_check_last_block()
 
-    def retrieve_missing_block(self):
+    def get_miss(self):
         try:
             uncheck_blocks = self.db_proxy.search(FLAGS.blocks, None, projection = {"number":1},
                 multi = True, limit = 10 * FLAGS.greenlet_num, ascend = False, sort_key = "number")
@@ -81,97 +128,37 @@ class BuiltinDriver(base.Base):
         block_handler = BlockHandler(self.rpc_cli, self.logger, self.db_proxy)
         block_handler.execute(self.db_block_number, fork_check = True)
 
-    def synchronize(self):
-        self.initialize()
-        if self.db_block_number == 0:
-            self.add_indexes(0)
-            self.add_genesis_data()
-            self.run(1, self.net_block_number)
-        else:
-            self.run(self.db_block_number+1, self.net_block_number)
+    
 
-        self.listen()
-        self.wait()
+    def pending_blocks(self):
+        if self.net_block_number is not None and self.db_block_number is not None:
+            if isinstance(self.net_block_number, int) and isinstance(self.db_block_number, int):
+                return self.net_block_number - self.db_block_number
+        return None
+
         
-    def add_genesis_data(self):
-        filename = FLAGS.genesis_data
-        with open(filename, "r") as f:
-            data = json.load(f)
-            data['transactions'] = []
-            for to in data['alloc'].keys():
-                value = data['alloc'][to]['balance']
-                value = hex(int(value))
-                if value.endswith('L'): value = value[:-1]
-                data['transactions'].append({
-                    "hash" : "GENESIS_" + to,
-                    "from" : "GENESIS",
-                    "to" : '0x'+ to,
-                    "value" : value,
-                })
-
-            del data['alloc']
-            block_handler = BlockHandler(self.rpc_cli, self.logger, self.db_proxy)
-            block_handler.process_genesis(data)
-      
-    def listen(self):
-        self.listener = Process(target = self.listener_proc, args = (self.share_queue,))
-        self.listener.daemon = True
-        self.listener.start()
-
-    @signal_watcher
-    def listener_proc(self, queue):
-        filter_id = self.rpc_cli.call(constant.METHOD_NEW_BLOCK_FILTER)
+    def start_loop(self):
         while True:
-            try:
-                res = self.rpc_cli.call(constant.METHOD_GET_FILTER_CHANGES, filter_id)
-                if res:
-                    # new blocks array
-                    self.logger.info("new blocks arrive: %s" % res)
-                    for block in res:
-                        queue.put(block)
-                else:
-                    time.sleep(FLAGS.poll_interval)
-            except:
-                # connect establish may be failed, just ignore it
-                time.sleep(FLAGS.poll_interval)
+            self.get_status()
+            # sequence
+            block_handler = BlockHandler(self.rpc_cli, self.logger, self.db_proxy, sync_balance = True)
+            for block_num in range(self.db_block_number+1, self.net_block_number+1):
+                block_handler.execute(block_num, fork_check = True)
 
-    @signal_watcher
-    def pending_processor(self, queue):
-        logger.info("begin process pending blocks")
-        block_handler = BlockHandler(self.rpc_cli, self.logger, self.db_proxy, sync_balance = True)
-        while True:
-            block = queue.get()
-            # need fork-check
-            block_handler.execute(block, fork_check = True)
 
-    def run(self, begin, end):
+    def run(self, begin, end, sync_balance):
+        time_start = time.time()
         self.logger.info("synchronize start, from %d to %d" % (begin, end))
-        self.werkproces = Process(target = self.worker, args = (begin, end, self.rpc_cli, self.logger))
-        self.werkproces.daemon = True
-        self.werkproces.start()
-
-    @signal_watcher
-    def worker(self, begin, end, rpc_cli, logger):
-        synchronizor = Synchronizor(begin, end, rpc_cli, logger)
+        synchronizor = Synchronizor(begin, end, self.rpc_cli, self.logger)
         synchronizor.run()
-
-    def wait_worker_finish(self):
-        self.werkproces.join()
-
-    def wait(self):
-        self.wait_worker_finish()
-        self.logger.info("worker finish. start sync balance, it can take a long time")
+        self.logger.info("synchronize start, from %d to %d finished, totally elapsed %f" % (begin, end, time.time() - time_start))
         
-        block_handler = BlockHandler(self.rpc_cli, self.logger, self.db_proxy)
-        block_handler._sync_balance(self.net_block_number)
-
-        self.logger.info("sync balance finish. start to handler pending blocks")
-        self.pending = Process(target = self.pending_processor, args = (self.share_queue,))
-        self.pending.daemon = True
-        self.pending.start()
-
-        self.listener.join()
-        self.pending.join()
+        if sync_balance:
+            time_start = time.time()
+            self.logger.info("synchronize balance begin")
+            block_handler = BlockHandler(self.rpc_cli, self.logger, self.db_proxy)
+            block_handler._sync_balance(end)
+            self.logger.info("synchronize balance finished, totally elapsed %f" % (time.time() - time_start))
 
 
 class Synchronizor(base.Base):

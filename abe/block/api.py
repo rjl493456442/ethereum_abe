@@ -18,3 +18,11 @@ class BlockAPI(object):
 		'''
 		self.driver.synchronize()
 
+	def synchronize(self, begin, end, sync_balance):
+		''' retrieve the  blocks in range [begin, end) '''
+		self.driver.synchronize(begin, end, sync_balance)
+
+	def check(self, begin, end, sync_balance):
+		''' check the  blocks in range [begin, end) , if miss, get it back; if duplicate remove it'''
+		self.driver.check(begin, end)
+
