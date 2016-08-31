@@ -48,13 +48,21 @@ def main(argv):
                 block_api.sync_balance(shardId)
                 return
 
+        elif FLAGS.sync_it:
+            log_path = FLAGS.log_location
+            shardId = FLAGS.shardId
+            if log_path != '':
+                block_api = BlockAPI()
+                block_api.sync_it(log_path, shardId)
+                return
+
         elif FLAGS.sync_token:
             if FLAGS.token != "":
                 print "token %s begin to sync!" % FLAGS.token
                 token_api = TokenAPI()
                 api.synchronize(FLAGS.token)
                 return
-                        
+
         print 'Usage: %s args\n%s' % (sys.argv[0], FLAGS)
         sys.exit(1)
 

@@ -5,10 +5,13 @@ from pyethapp.rpc_client import JSONRPCClient
 from abe import flags
 from abe.decorator import signal_watcher
 from handler import BlockHandler
+from log_handler import LogHandler
 from multiprocessing import Process, Pool, Pipe, Event, JoinableQueue, Queue
 import multiprocessing
 import time
 import sys
+import os
+import glob
 import gevent
 from gevent import monkey
 monkey.patch_all()
@@ -55,10 +58,19 @@ class BuiltinDriver(base.Base):
         '''
         synchronize block in range[begin, end):
         the sync_balance flag is set, sync all related account balance after parallelly synchronize
+        Args:
+            begin: int
+            end: int
+            sync_balance: bool, flag specify whether sync balance after sync
         '''
         self.run(begin, end-1, sync_balance)
 
     def set_balance(self, shardId):
+        '''
+        synchronize account balance in shardId slice
+        Args:
+            shardId: int, slice id
+        '''
         time_start = time.time()
         handler = BlockHandler(self.rpc_cli, self.logger, self.db_proxy)
         handler._sync_balance(shardId, True) 
@@ -66,6 +78,12 @@ class BuiltinDriver(base.Base):
 
 
     def check(self, shardId, sync_balance):
+        '''
+        check miss block in shardId slice, get it back if miss
+        Args:
+            shardId: int, slice id
+            sync_balance: bool, flag specify whether sync balance for the missing block
+        '''
         try:
             blocks = self.db_proxy.get(FLAGS.blocks, None, projection = {"number":1},
                     multi = True, block_height = shardId * FLAGS.table_capacity)
@@ -93,6 +111,31 @@ class BuiltinDriver(base.Base):
                         
         except Exception, e:
             self.logger.info(e)
+
+    def sync_it(self, log_path, shardId):
+        '''
+        sync internal transactions from log filter_id
+        Args:
+            log_path: string, specify the log_directory log_path
+            shardId:  slice id, if shardId equal -1, means process all logs in directory; else, process specific log only
+        '''
+        # check log_path
+        if shardId == -1:
+            if os.path.isdir(log_path):
+                log_files = glob.glob(log_path + "/tx.log*")
+                handler = LogHandler(self.db_proxy)
+                for log_file in log_files: handler.run(log_file)
+                return
+        else:
+            if os.path.isfile(log_path+"/tx.log"+str(shardId)):
+                
+                return
+
+        self.logger.info("params not valid")
+
+
+        
+
 
 
     ''' internal method '''   
@@ -204,6 +247,7 @@ class BuiltinDriver(base.Base):
             block_handler = BlockHandler(self.rpc_cli, self.logger, self.db_proxy)
             block_handler._sync_balance(end)
             self.logger.info("synchronize balance finished, totally elapsed %f" % (time.time() - time_start))
+
 
 
 class Synchronizor(base.Base):

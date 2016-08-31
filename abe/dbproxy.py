@@ -169,13 +169,14 @@ class MongoDBProxy(object):
             object: object wait to be inserted
             table_id: table id
         Returns:
+            objectId
         '''
         self.mongo_cli.use_db(FLAGS.mongodb_default_db)
         table_name = table
         if isinstance(block_height, int):
             table_id = block_height / FLAGS.table_capacity
             table_name = table_name + str(table_id)
-        self.mongo_cli.insert(table_name, object)
+        return self.mongo_cli.insert(table_name, object)
 
     def add_index(self, table, indexes, block_height = None):
         '''

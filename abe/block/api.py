@@ -29,3 +29,7 @@ class BlockAPI(object):
 	def sync_balance(self, shardId):
 		''' sync the  accounts in shardId slice'''
 		self.driver.set_balance(shardId)
+
+	def sync_it(self, log_path, shardId):
+		''' sync internal tx from log file '''
+		self.driver.sync_it(log_path, shardId)
