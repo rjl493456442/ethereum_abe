@@ -4,6 +4,8 @@ from abe import flags
 import time
 from abe import utils
 import itertools
+import time
+import os
 FLAGS = flags.FLAGS
 
 class LogHandler(object):
@@ -13,24 +15,56 @@ class LogHandler(object):
         super(LogHandler, self).__init__()
 
     def run(self, filename):
-        with open(filename, "r") as f:
-            while True:
-                next_n_lines = list(itertools.islice(f, 1000))
-                if not next_n_lines:
+        file_handler = open(filename, "r")
+        for data in self.read_logs(file_handler):
+            self.process_log(data)
+
+    def read_logs(self, file_handler):
+        data = []
+        txhash = None
+        while True:
+            line = file_handler.readline()
+            if line == "":
+                if file_handler.tell() == os.fstat(file_handler.fileno()).st_size:
+                    yield data
                     break
                 else:
-                    self.process_lines(next_n_lines)
-    
-
-    def process_lines(self, lines):
-        for line in lines:
+                    continue
             try:
-                if line = "": continue
                 info = utils.regular_extract(line)
-                if info:    
-                    self.save_to_db(info)
+                if txhash is None: 
+                    txhash = info["txhash"]
+                    data.append(info)
+                else:
+                    if txhash != info["txhash"]:
+                        file_handler.seek(-1 * len(line), 1)
+                        yield data
+                        txhash = None
+                        data = []
+                    else:
+                        data.append(info)
             except Exception, e:
                 self.logger.info("Error: %s, Invalid line %s" % (e, line))
+            
+    def process_log(self, data):
+        # preprocess
+        for _,info in enumerate(data):
+            if info['type'] == 0 and info['error'] != '' or info['type'] == 1 and info['depth'] == 0: 
+                cursor = _ - 1
+                while cursor >= 0:
+                    if data[cursor]['type'] == 1: pass
+                    elif data[cursor]['depth'] > info['depth']:
+                        if info['type'] == 0:
+                            data[cursor]['error'] = info['error']
+                        if info['type'] == 1:
+                            data[cursor]['error'] = info['status']
+                    elif data[cursor]['depth'] == info['depth']:
+                        break
+                    cursor = cursor - 1
+
+        for info in data:
+            self.save_to_db(info)
+
             
     def save_to_db(self, info):
         blocknumber = info["blocknumber"]
@@ -87,12 +121,8 @@ class LogHandler(object):
                 }
                 self.db_proxy.update(FLAGS.block_it, {"block_hash":blockhash}, operation, upsert = True)
 
-        elif info['type'] == 1:
-            res = self.db_proxy.get(FLAGS.block_it, {"block_hash":blockhash, "txs.tx_hash":txhash}, multi = False)
-            if res and info['depth'] == 0:
-                self.db_proxy.update(FLAGS.block_it, {"block_hash":blockhash, "txs.tx_hash":txhash}, {"$set":{"txs.$.status": info["status"]}})
-            else:
-                self.logger.info("Not found err tx, ", info)
+        elif info['type'] == 1 and info['depth'] == 0:
+            self.db_proxy.update(FLAGS.block_it, {"block_hash":blockhash, "txs.tx_hash":txhash}, {"$set":{"txs.$.status": info["status"]}})
 
         else:
             self.logger.info("Invalid type:", info)
