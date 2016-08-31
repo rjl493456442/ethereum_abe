@@ -83,7 +83,7 @@ class BuiltinDriver(base.Base):
                         
                 handler = BlockHandler(self.rpc_cli, self.logger, self.db_proxy, sync_balance)
 
-                self.logger.info("totaly %d blocks missing" % len(miss))
+                self.logger.info("totally %d blocks missing" % len(miss))
 
                 while len(miss) > 0:
                     if not handler.execute(miss[0], fork_check = False):
