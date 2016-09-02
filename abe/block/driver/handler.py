@@ -189,7 +189,7 @@ class BlockHandler(object):
         diff_uncle_reward = (len(new_block['uncles']) - len(old_block['uncles'])) * FLAGS.default_reward * 1.0 / 32
         diff_uncle_reward = utils.unit_convert_from_ether(diff_uncle_reward)
         new_block['reward'] = old_block['reward'] - undo_fee + apply_fee + diff_uncle_reward
-        
+        new_block['tx_nums'] = len(new_block['transactions'])
         del new_block['transactions']
 
         # update miner account
