@@ -5,9 +5,11 @@ from abe.tx.api import TxAPI
 from abe import flags
 from multiprocessing import Process
 from abe.decorator import signal_watcher
+from scripts import tools
 import os
 import sys
 import gflags
+
 
 FLAGS = flags.FLAGS
 
@@ -62,6 +64,11 @@ def main(argv):
                 token_api = TokenAPI()
                 api.synchronize(FLAGS.token)
                 return
+
+        elif FLAGS.tool and FLAGS.service != '':
+            tool = tools.Tool()
+            tool.service(FLAGS.service)
+            return 
 
         print 'Usage: %s args\n%s' % (sys.argv[0], FLAGS)
         sys.exit(1)

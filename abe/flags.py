@@ -84,7 +84,8 @@ gflags.DEFINE_bool("sync_block_forever", False, 'start sync block service')
 gflags.DEFINE_bool("sync_token", False, 'start sync token service')
 gflags.DEFINE_string("token", "", "name of token to sync")
 
-
+gflags.DEFINE_bool("tool", False, 'start tool service')
+gflags.DEFINE_string("service", "", 'start tool service')
 
 #test cmd
 gflags.DEFINE_bool('test_all', False, 'switch')
