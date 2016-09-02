@@ -215,7 +215,7 @@ class BuiltinDriver(base.Base):
         
     def start_loop(self):
         logger.info("begin loop handle")
-        block_handler = BlockHandler(self.rpc_cli, self.logger, self.db_proxy, sync_it = True)
+        block_handler = BlockHandler(self.rpc_cli, self.logger, self.db_proxy, sync_balance = True)
         while True:
             block = self.share_queue.get()
             # need fork-check
