@@ -306,12 +306,12 @@ class BlockHandler(object):
         self.set_balance(accounts, net_last_block)
 
     def set_balance(self, accounts, block_number):
-        ''' block number use to specify rpc block param; block_height use to specify the slice of mongodb'''
         if type(accounts) is list: accounts = list(set(accounts))
         else: accounts = list(accounts)
         
         while len(accounts) > 0:
             try:
+                if accounts[0] is None: continue
                 balance = self.rpc_cli.call(constant.METHOD_GET_BALANCE, accounts[0], block_number)
                 if balance:    
                     operation = {
@@ -323,6 +323,7 @@ class BlockHandler(object):
                 accounts.pop(0)
             except Exception, e:
                 self.logger.info(e)
+                self.logger.info(accounts[0])
                 accounts.append(accounts[0])
         
         self.db_proxy.update(FLAGS.meta, {"sync_record":"ethereum"}, {"$set": {"account_status_flag":block_number} }, multi = False, upsert = True)
