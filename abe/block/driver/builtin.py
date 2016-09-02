@@ -54,11 +54,11 @@ class BuiltinDriver(base.Base):
         # get block in sequence
         self.start_loop()
 
-    def synchronize(self, begin, end):
+    def synchronize(self, begin, end, sync_balance):
         '''
         synchronize block in range[begin, end):
         '''
-        self.run(begin, end-1)
+        self.run(begin, end-1, sync_balance = sync_balance)
 
     def check(self, shardId):
         '''
@@ -221,14 +221,19 @@ class BuiltinDriver(base.Base):
             # need fork-check
             block_handler.execute(block, fork_check = True)
 
-    def run(self, begin, end):
+    def run(self, begin, end, sync_balance):
         time_start = time.time()
         self.logger.info("synchronize start, from %d to %d" % (begin, end))
         synchronizor = Synchronizor(begin, end, self.rpc_cli, self.logger)
         synchronizor.run()
         self.logger.info("synchronize start, from %d to %d finished, totally elapsed %f" % (begin, end, time.time() - time_start))
         
-
+        if sync_balance:
+            time_start = time.time()
+            self.logger.info("synchronize balance begin")
+            block_handler = BlockHandler(self.rpc_cli, self.logger, self.db_proxy)
+            block_handler._sync_balance(end)
+            self.logger.info("synchronize balance finished, totally elapsed %f" % (time.time() - time_start))
 
 class Synchronizor(base.Base):
     def __init__(self, begin, end, rpc_cli, logger):

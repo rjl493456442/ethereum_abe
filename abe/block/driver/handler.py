@@ -9,10 +9,11 @@ import json
 FLAGS = flags.FLAGS
 
 class BlockHandler(object):
-    def __init__(self, rpc_cli, logger, db_proxy, sync_it = False):
+    def __init__(self, rpc_cli, logger, db_proxy, sync_balance = False, sync_it = False):
         self.rpc_cli = rpc_cli
         self.logger = logger
         self.db_proxy = db_proxy
+        self.sync_balance = sync_balance
         super(BlockHandler, self).__init__()
 
     def execute(self, blockinfo, fork_check):
@@ -127,8 +128,8 @@ class BlockHandler(object):
         uncle_miners = self.process_uncle(block)
         accounts.extend(uncle_miners)
         accounts.append(block['miner'])
-        
-        self.set_balance(accounts, self.blk_number)
+
+        if self.sync_balance: self.set_balance(accounts, self.blk_number)
         # insert block
         self.db_proxy.update(FLAGS.blocks, {"number":block['number']}, {"$set":block}, block_height = self.blk_number, upsert = True)
         return True
@@ -198,7 +199,7 @@ class BlockHandler(object):
         accounts.append(old_block["miner"])
 
         # set balance
-        self.set_balance(accounts, self.blk_number)
+        if self.sync_balance : self.set_balance(accounts, self.blk_number)
         
         self.db_proxy.update(FLAGS.blocks, {"hash": new_block['hash']}, {"$set":new_block}, block_height = self.blk_number, upsert = True)
 
@@ -323,7 +324,6 @@ class BlockHandler(object):
                 accounts.pop(0)
             except Exception, e:
                 self.logger.info(e)
-                self.logger.info(accounts[0])
                 accounts.append(accounts[0])
         
         self.db_proxy.update(FLAGS.meta, {"sync_record":"ethereum"}, {"$set": {"account_status_flag":block_number} }, multi = False, upsert = True)

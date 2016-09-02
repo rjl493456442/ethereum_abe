@@ -18,9 +18,9 @@ class BlockAPI(object):
 		'''
 		self.driver.synchronize_forever()
 
-	def synchronize(self, begin, end):
+	def synchronize(self, begin, end, sync_balance):
 		''' retrieve the  blocks in range [begin, end) '''
-		self.driver.synchronize(begin, end)
+		self.driver.synchronize(begin, end, sync_balance)
 
 	def check(self, shardId):
 		''' check the  blocks in shardId slice , if miss, get it back; if duplicate remove it'''

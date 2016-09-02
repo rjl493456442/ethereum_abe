@@ -23,9 +23,10 @@ def main(argv):
         if FLAGS.sync_block:
             begin = FLAGS.begin
             end = FLAGS.end
+            sync_balance = FLAGS.sync_balance
             if begin != -1 and end != -1 and end > begin:
                 block_api = BlockAPI()
-                block_api.synchronize(begin, end)
+                block_api.synchronize(begin, end, sync_balance)
                 return
 
         elif FLAGS.sync_block_forever:
