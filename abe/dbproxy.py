@@ -61,7 +61,7 @@ class MongoDBProxy(object):
         self.mongo_cli.use_db(FLAGS.mongodb_default_db)
         tables = self.mongo_cli.mc.collection_names()
         table_prefix = table
-        nums = [int(t[len(table_prefix):]) for t in tables if t.startswith(table_prefix)]
+        nums = [int(t[len(table_prefix):]) for t in tables if t.startswith(table_prefix) and t != table_prefix]
         if multi is False:
             ''' only single document is requred '''
             for id in nums:
@@ -160,7 +160,7 @@ class MongoDBProxy(object):
         else:
             return self.mongo_cli.delete_many(table_name, cond)
 
-    def insert(self, table, object, block_height = None):
+    def insert(self, table, object, block_height = None, multi = False):
         '''
         insert document from specific table with table_id
         search from collection with default name `table` if table_id is None
@@ -176,7 +176,10 @@ class MongoDBProxy(object):
         if isinstance(block_height, int):
             table_id = block_height / FLAGS.table_capacity
             table_name = table_name + str(table_id)
-        return self.mongo_cli.insert(table_name, object)
+        if multi is False:
+            return self.mongo_cli.insert_one(table_name, object)
+        else:
+            return self.mongo_cli.insert_many(table_name, object)
 
     def add_index(self, table, indexes, block_height = None):
         '''
@@ -206,7 +209,7 @@ class MongoDBProxy(object):
     def get_table_count(self, table_prefix):
         self.mongo_cli.use_db(FLAGS.mongodb_default_db)
         tables = self.mongo_cli.mc.collection_names()
-        nums = [int(t[len(table_prefix):]) for t in tables if t.startswith(table_prefix)]
+        nums = [int(t[len(table_prefix):]) for t in tables if t.startswith(table_prefix) and t != table_prefix]
         return len(nums)
 
 

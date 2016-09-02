@@ -50,8 +50,11 @@ class MongodbClient(object):
     def update_many(self, table, cond, operation, upsert):
         self.mc[table].update_many(cond, operation, upsert)
 
-    def insert(self, table, value):
+    def insert_one(self, table, value):
         return self.mc[table].insert_one(value)
+
+    def insert_many(self, table, documents):
+        self.mc[table].insert_many(documents)
 
     def delete_one(self, table, cond):
         self.mc[table].delete_one(cond)

@@ -1,6 +1,7 @@
 from abe import dbproxy
 from abe import flags
 import time
+import pymongo
 FLAGS = flags.FLAGS
 class Tool(object):
     def __init__(self):
@@ -41,4 +42,19 @@ class Tool(object):
                     for acct in res:
                         if acct and acct.has_key("is_contract"):
                             self.db_proxy.update(FLAGS.contract, {"address": acct['address']}, {"$set":{"address": acct['address']}}, upsert = True)
+                print "process %d accounts finish, elapsed %f" % (len(res), time.time() - time_start)
+
+        elif service_name == 'merge_account_table':
+            self.db_proxy.add_index(FLAGS.accounts, [("address", pymongo.ASCENDING)])
+            cnt = self.db_proxy.get_table_count(FLAGS.accounts)
+            for idx in range(cnt):
+                time_start = time.time()
+                res = self.db_proxy.get(FLAGS.accounts+str(idx), None, multi = True)
+                if res:
+                    for acct in res:
+                        if acct.has_key('balance'):
+                            self.db_proxy.update(FLAGS.accounts, {"address": acct['address']}, {"$set": {"balance": acct['balance']}}, upsert = True)
+                        else:
+                            self.db_proxy.update(FLAGS.accounts, {"address": acct['address']}, {"$set": {"address": acct['address']}}, upsert = True)
+
                 print "process %d accounts finish, elapsed %f" % (len(res), time.time() - time_start)
