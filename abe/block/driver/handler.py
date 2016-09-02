@@ -9,7 +9,7 @@ import json
 FLAGS = flags.FLAGS
 
 class BlockHandler(object):
-    def __init__(self, rpc_cli, logger, db_proxy, sync_balance = False):
+    def __init__(self, rpc_cli, logger, db_proxy, sync_balance = False, sync_it = False):
         self.rpc_cli = rpc_cli
         self.logger = logger
         self.db_proxy = db_proxy
@@ -111,6 +111,7 @@ class BlockHandler(object):
             accounts.append(tx['from'])
             accounts.append(tx['to'])
 
+        block['tx_nums'] = len(block['transactions'])
         del block['transactions']
 
         # update miner account
@@ -131,7 +132,10 @@ class BlockHandler(object):
         
         if self.sync_balance:
             self.set_balance(accounts, self.blk_number, self.blk_number, record = True)
-    
+        
+        if self.sync_it:
+            pass
+
         # insert block
         self.db_proxy.update(FLAGS.blocks, {"number":block['number']}, {"$set":block}, block_height = self.blk_number, upsert = True)
         return True
@@ -327,13 +331,12 @@ class BlockHandler(object):
             self.logger.error(e)
             return False
 
-    def _sync_balance(self, net_last_block):
+    def _sync_balance_all(self, net_last_block):
         res = self.db_proxy.get(FLAGS.meta, {"sync_record":"ethereum"}, multi = False)
         if res and res.has_key("last_sync_block"):
-            last_sync_block = res['last_sync_block']
+            last_sync_block = int(res['last_sync_block'])
         else:
             last_sync_block = 0
-        
         account_table_n = self.db_proxy.get_table_count(FLAGS.accounts)
 
         for index in range((last_sync_block+1) / FLAGS.table_capacity, account_table_n):

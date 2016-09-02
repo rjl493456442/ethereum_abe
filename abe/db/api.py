@@ -45,7 +45,7 @@ class MongodbClient(object):
             return list(res) if res else None
 
     def update_one(self, table, cond, operation, upsert):
-        self.mc[table].update_one(cond, operation, upsert)
+        return self.mc[table].update_one(cond, operation, upsert)
 
     def update_many(self, table, cond, operation, upsert):
         self.mc[table].update_many(cond, operation, upsert)

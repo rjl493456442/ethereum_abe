@@ -8,7 +8,7 @@ class BlockAPI(object):
 			block_driver = FLAGS.block_driver
 		self.driver = utils.import_object(block_driver)
 
-	def synchronize(self):
+	def synchronize_forever(self):
 		'''
 		(1)get the block number since last execution
 		(2)retrieve the miss blocks in range [last_block - greenlet_num, last_block) with repeat check
@@ -16,7 +16,7 @@ class BlockAPI(object):
 		(4)obtain blocks from the last block + greenlet_num + 1 to the newest one in the net
 		(5)synchronize the new arrival blocks with fork-check
 		'''
-		self.driver.synchronize()
+		self.driver.synchronize_forever()
 
 	def synchronize(self, begin, end, sync_balance):
 		''' retrieve the  blocks in range [begin, end) '''

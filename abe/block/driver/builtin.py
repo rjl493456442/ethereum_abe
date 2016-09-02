@@ -34,7 +34,7 @@ class BuiltinDriver(base.Base):
 
 
     ''' api '''    
-    def synchronize(self):
+    def synchronize_forever(self):
         '''
         synchronize block forever: 
             step1, set listener to gather all pending block hashes;
@@ -57,7 +57,7 @@ class BuiltinDriver(base.Base):
     def synchronize(self, begin, end, sync_balance):
         '''
         synchronize block in range[begin, end):
-        the sync_balance flag is set, sync all related account balance after parallelly synchronize
+        the sync_balance flag is set, sync all related account balance after parallelly synchronization
         Args:
             begin: int
             end: int
@@ -74,7 +74,7 @@ class BuiltinDriver(base.Base):
         time_start = time.time()
         handler = BlockHandler(self.rpc_cli, self.logger, self.db_proxy)
         handler._sync_balance(shardId, True) 
-        self.logger.info("sync balance finish, totally elapsed:%f", time.time()-time_start)
+        self.logger.info("sync balance finish, totally elapsed:%f" % (time.time()-time_start))
 
 
     def check(self, shardId, sync_balance):
@@ -103,10 +103,12 @@ class BuiltinDriver(base.Base):
 
                 self.logger.info("totally %d blocks missing" % len(miss))
 
+                time_start = time.time()
                 while len(miss) > 0:
                     if not handler.execute(miss[0], fork_check = False):
                         miss.append(miss[0])
                     miss.pop(0)
+                self.logger.info("retrieve blocks finish, totally elapsed:%f" % (time.time()-time_start))
                 return True
                         
         except Exception, e:
@@ -119,25 +121,26 @@ class BuiltinDriver(base.Base):
             log_path: string, specify the log_directory log_path
             shardId:  slice id, if shardId equal -1, means process all logs in directory; else, process specific log only
         '''
-        # check log_path
         if shardId == -1:
+            # process all log in directory
             if os.path.isdir(log_path):
+                time_start = time.time()
                 log_files = glob.glob(log_path + "/tx.log*")
                 handler = LogHandler(self.db_proxy)
                 for log_file in log_files: handler.run(log_file)
+                self.logger.info("process log %s finish, totally elapsed:%f" % (log_files ,time.time()-time_start))
                 return
         else:
-            if os.path.isfile(log_path+"/tx.log"+str(shardId)):
+            # process specified log
+            filename = log_path+"/tx.log"+str(shardId)
+            if os.path.isfile(filename):
+                time_start = time.time()
                 handler = LogHandler(self.db_proxy)
-                handler.run(log_path+"/tx.log"+str(shardId))
+                handler.run(filename)
+                self.logger.info("process log %s finish, totally elapsed:%f" % (filename, time.time()-time_start))
                 return
 
         self.logger.info("params not valid")
-
-
-        
-
-
 
     ''' internal method '''   
 
@@ -192,7 +195,7 @@ class BuiltinDriver(base.Base):
                 
         handler = BlockHandler(self.rpc_cli, self.logger, self.db_proxy)
 
-        self.logger.info("totaly %d blocks missing" % len(miss))
+        self.logger.info("totally %d blocks missing" % len(miss))
 
         while len(miss) > 0:
             if not handler.execute(miss[0], fork_check = False):
@@ -229,7 +232,7 @@ class BuiltinDriver(base.Base):
         
     def start_loop(self):
         logger.info("begin loop handle")
-        block_handler = BlockHandler(self.rpc_cli, self.logger, self.db_proxy, sync_balance = True)
+        block_handler = BlockHandler(self.rpc_cli, self.logger, self.db_proxy, sync_balance = True, sync_it = True)
         while True:
             block = self.share_queue.get()
             # need fork-check
@@ -246,7 +249,7 @@ class BuiltinDriver(base.Base):
             time_start = time.time()
             self.logger.info("synchronize balance begin")
             block_handler = BlockHandler(self.rpc_cli, self.logger, self.db_proxy)
-            block_handler._sync_balance(end)
+            block_handler._sync_balance_all(end)
             self.logger.info("synchronize balance finished, totally elapsed %f" % (time.time() - time_start))
 
 

@@ -2,6 +2,7 @@ import os
 import sys
 from abe import flags
 import re
+import hashlib
 FLAGS = flags.FLAGS
 
 def import_class(import_str):
@@ -119,9 +120,12 @@ def regular_extract(line):
         blockHash       | 3 |       blockHash
 
     '''
+    hash = '0x' + hashlib.new("sha224", line.encode("hex")).hexdigest()
     fields = line.split(' ')
+    
     if fields[3] == "INTERNALTX":
         info = {
+            "hash" : hash,
             "type" : 0,
             "blocknumber" : int(fields[4][8:-2]),
             "blockhash" : '0x' + fields[5][11:-2],
@@ -137,6 +141,7 @@ def regular_extract(line):
         }
     elif fields[3] == "EXERESULT":
         info = {
+            "hash" : hash,
             "type" : 1,
             "blocknumber" : int(fields[4][8:-2]),
             "blockhash" : '0x' + fields[5][11:-2],
@@ -146,6 +151,7 @@ def regular_extract(line):
         }
     elif fields[3] == "BLOCK":
         info = {
+            "hash" : hash,
             "type" : 2,
             "blocktype" : fields[4][6:-2],
             "blockhash" : fields[5][6:-2],
@@ -153,6 +159,7 @@ def regular_extract(line):
         }
     else:
         info = None
+
     return info
-    
+
 
