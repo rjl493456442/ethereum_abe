@@ -29,7 +29,7 @@ def main(argv):
 
         elif FLAGS.sync_block_forever:
             block_api = BlockAPI()
-            block_api.synchronize()
+            block_api.synchronize_forever()
             return
 
         elif FLAGS.check_block:
