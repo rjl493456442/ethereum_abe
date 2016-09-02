@@ -88,7 +88,7 @@ class BlockHandler(object):
             }
             self.db_proxy.update(FLAGS.accounts, {"address":tx["to"]}, operation, upsert = True, multi = False)
             self.db_proxy.update(FLAGS.txs, {"hash":tx["hash"]}, {"$set":tx}, upsert = True, multi = False, block_height = 0)
-        block['tx_nums'] = len(block['transactions'])
+        block['txs_num'] = len(block['transactions'])
             
         del block['transactions']
         self.db_proxy.update(FLAGS.blocks, {"number":0}, {"$set":block}, block_height = 0, upsert = True)
@@ -111,7 +111,7 @@ class BlockHandler(object):
             accounts.append(tx['from'])
             accounts.append(tx['to'])
 
-        block['tx_nums'] = len(block['transactions'])
+        block['txs_num'] = len(block['transactions'])
         del block['transactions']
 
         # update miner account
@@ -183,7 +183,7 @@ class BlockHandler(object):
         diff_uncle_reward = (len(new_block['uncles']) - len(old_block['uncles'])) * FLAGS.default_reward * 1.0 / 32
         diff_uncle_reward = utils.unit_convert_from_ether(diff_uncle_reward)
         new_block['reward'] = old_block['reward'] - undo_fee + apply_fee + diff_uncle_reward
-        new_block['tx_nums'] = len(new_block['transactions'])
+        new_block['txs_num'] = len(new_block['transactions'])
         del new_block['transactions']
 
         # update miner account
