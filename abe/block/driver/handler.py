@@ -84,7 +84,6 @@ class BlockHandler(object):
             tx['blockNumber'] = "0x0"
             tx['timestamp'] = timestamp
             operation = {
-                "$addToSet" : {"tx_in": tx["hash"]},
                 "$set" : {"address" : tx["to"]},
             }
             self.db_proxy.update(FLAGS.accounts, {"address":tx["to"]}, operation, upsert = True, multi = False, block_height = 0)
@@ -120,7 +119,6 @@ class BlockHandler(object):
         block['reward'] = total_fee + basic_reward
     
         operation = {
-            "$addToSet" : {"mine": block["hash"]},
             "$set" : {"address" : block["miner"]},
         }
 
@@ -193,7 +191,6 @@ class BlockHandler(object):
 
         # update miner account
         operation = {
-            "$addToSet" : {"mine": new_block["hash"]},
             "$set" : {"address" : new_block["miner"]},
         }
         self.db_proxy.update(FLAGS.accounts, {"address":new_block["miner"]}, operation, block_height = self.blk_number, upsert = True)
@@ -230,7 +227,6 @@ class BlockHandler(object):
                 
                 operation = {
                     "$set" : {"address" : buncle["miner"]},
-                    "$addToSet" : {"uncles" : uncle}
                 }
                 self.db_proxy.update(FLAGS.accounts, {"address":buncle["miner"]}, operation, block_height = current_height, upsert = True)
 
@@ -251,7 +247,6 @@ class BlockHandler(object):
         # apply tx
         try:
             operation = {
-                "$addToSet" : {"tx_out": tx["hash"]},
                 "$set" : {"address" : tx["from"]},
             }
             self.db_proxy.update(FLAGS.accounts, {"address":tx["from"]}, operation, block_height = self.blk_number, upsert = True)
@@ -262,7 +257,6 @@ class BlockHandler(object):
                 code = self.rpc_cli.call(constant.METHOD_GET_CODE, tx['contractAddress'], "latest")
                 operation = {
                     "$set" : {"address" : tx["contractAddress"], "is_contract" : 1, "code" : code},
-                    "$addToSet" : {"tx_in": tx["hash"]},
                 }
                 # update contract table
                 self.db_proxy.update(FLAGS.contract, {"address": tx['contractAddress']}, {"$set":{"address": tx['contractAddress']}}, upsert = True)
@@ -270,7 +264,6 @@ class BlockHandler(object):
 
             else:
                 operation = {
-                    "$addToSet" : {"tx_in": tx["hash"]},
                     "$set" : {"address" : tx["to"]},
                 }
                 self.db_proxy.update(FLAGS.accounts, {"address":tx["to"]}, operation, block_height = self.blk_number, upsert = True)
@@ -287,10 +280,6 @@ class BlockHandler(object):
             return 0
 
     def revert(self, block, tx_list):
-        operation = {
-            "$pull" : {"mine" : block['hash']},
-        }
-        self.db_proxy.update(FLAGS.accounts, {"address":block["miner"]}, operation, block_height = self.blk_number)
         # delete origin block
         self.db_proxy.delete(FLAGS.blocks, {"hash":block["hash"]}, block_height = self.blk_number, multi = False)
         # revert txs
@@ -304,11 +293,6 @@ class BlockHandler(object):
             buncle = self.db_proxy.get(FLAGS.uncles, {"mainNumber":current_height, "hash": uncle}, block_height = current_height, multi = False)
             if buncle:
                 miners.append(buncle["miner"])
-                operation = {
-                    "$set" : {"address" : buncle["miner"]},
-                    "$pull" : {"uncles" : buncle['hash']}
-                }
-                self.db_proxy.update(FLAGS.accounts, {"address":buncle["miner"]}, operation, block_height = current_height, upsert = True)
                 self.db_proxy.delete(FLAGS.uncles, {"mainNumber":current_height, "hash":uncle}, block_height = current_height)
         return miners
     
@@ -323,12 +307,6 @@ class BlockHandler(object):
                 # contract creation transaction
                 self.db_proxy.delete(FLAGS.contract, {"address": tx['contractAddress']})
                 self.db_proxy.delete(FLAGS.accounts, {"address": tx["contractAddress"]}, block_height = block_height)
-
-            else: 
-                operation = {
-                    "$pull" : {"tx_in": tx["hash"]},
-                }
-                self.db_proxy.update(FLAGS.accounts, {"address":tx["to"]}, operation, block_height = block_height)
 
             self.db_proxy.delete(FLAGS.txs, {"hash" : tx["hash"]}, block_height = block_height)
 
