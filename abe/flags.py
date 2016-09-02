@@ -32,6 +32,8 @@ gflags.DEFINE_string('balance_prefix', 'balance_', 'mongodb table')
 gflags.DEFINE_string('internaltx_prefix', 'internaltxs_', 'mongodb table')
 gflags.DEFINE_string('block_it', 'block_it', 'mongodb table')
 gflags.DEFINE_string('meta', 'meta', 'mongodb table')
+gflags.DEFINE_string('miner', 'miner', 'mongodb table')
+gflags.DEFINE_string('contract', 'contract', 'mongodb table')
 gflags.DEFINE_integer('table_capacity', 100000, 'table capacity')
 
 

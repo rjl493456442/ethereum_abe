@@ -133,9 +133,8 @@ class BlockHandler(object):
         if self.sync_balance:
             self.set_balance(accounts, self.blk_number, self.blk_number, record = True)
         
-        if self.sync_it:
-            pass
-
+        # update miner table
+        self.db_proxy.update(FLAGS.miner, {"address": block['miner']}, {"$set": {"address": new_block['miner']}}, upsert = True)
         # insert block
         self.db_proxy.update(FLAGS.blocks, {"number":block['number']}, {"$set":block}, block_height = self.blk_number, upsert = True)
         return True
@@ -207,7 +206,10 @@ class BlockHandler(object):
         # set balance
         if self.sync_balance:
             self.set_balance(accounts, self.blk_number, self.blk_number, record = True)
-
+        
+        # update miner table    
+        self.db_proxy.update(FLAGS.miner, {"address": new_block['miner']}, {"$set": {"address": new_block['miner']}}, upsert = True)
+        
         self.db_proxy.update(FLAGS.blocks, {"hash": new_block['hash']}, {"$set":new_block}, block_height = self.blk_number, upsert = True)
 
     def process_uncle(self, block):
@@ -262,6 +264,8 @@ class BlockHandler(object):
                     "$set" : {"address" : tx["contractAddress"], "is_contract" : 1, "code" : code},
                     "$addToSet" : {"tx_in": tx["hash"]},
                 }
+                # update contract table
+                self.db_proxy.update(FLAGS.contract, {"address": tx['contractAddress']}, {"$set":{"address": tx['contractAddress']}}, upsert = True)
                 self.db_proxy.update(FLAGS.accounts, {"address":tx["contractAddress"]}, operation, block_height = self.blk_number, upsert = True)
 
             else:
@@ -317,6 +321,7 @@ class BlockHandler(object):
 
             if tx['contractAddress']:
                 # contract creation transaction
+                self.db_proxy.delete(FLAGS.contract, {"address": tx['contractAddress']})
                 self.db_proxy.delete(FLAGS.accounts, {"address": tx["contractAddress"]}, block_height = block_height)
 
             else: 
