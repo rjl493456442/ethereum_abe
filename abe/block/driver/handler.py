@@ -88,7 +88,8 @@ class BlockHandler(object):
             }
             self.db_proxy.update(FLAGS.accounts, {"address":tx["to"]}, operation, upsert = True, multi = False, block_height = 0)
             self.db_proxy.update(FLAGS.txs, {"hash":tx["hash"]}, {"$set":tx}, upsert = True, multi = False, block_height = 0)
-
+        block['tx_nums'] = len(block['transactions'])
+            
         del block['transactions']
         self.db_proxy.update(FLAGS.blocks, {"number":0}, {"$set":block}, block_height = 0, upsert = True)
         return True
@@ -298,11 +299,6 @@ class BlockHandler(object):
     
     def revert_tx(self, tx, block_height):
         try:        
-            operation = {
-                "$pull" : {"tx_out": tx["hash"]},
-            }
-            self.db_proxy.update(FLAGS.accounts, {"address":tx["from"]}, operation, block_height = block_height)
-
             if tx['contractAddress']:
                 # contract creation transaction
                 self.db_proxy.delete(FLAGS.contract, {"address": tx['contractAddress']})

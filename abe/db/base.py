@@ -17,6 +17,7 @@ class Base(object):
         blocks_indexs = [
             [("number", pymongo.ASCENDING)],
             [("hash", pymongo.ASCENDING)],
+            [("miner", pymongo.ASCENDING)],
         ]
         for index in blocks_indexs:
             self.db_proxy.add_index(FLAGS.blocks, index, block_height = block_height)
@@ -24,6 +25,9 @@ class Base(object):
         tx_indexes = [
             [("blockNumber", pymongo.ASCENDING)],
             [("hash", pymongo.ASCENDING)],
+            [("from", pymongo.ASCENDING)],
+            [("to", pymongo.ASCENDING)],
+
         ]
         for index in tx_indexes:
             self.db_proxy.add_index(FLAGS.txs, index, block_height = block_height)
@@ -37,6 +41,7 @@ class Base(object):
         uncles_indexs = [
             [("mainNumber", pymongo.ASCENDING),("hash", pymongo.ASCENDING)],
             [("hash", pymongo.ASCENDING)],
+            [("miner", pymongo.ASCENDING)],
         ]
         for index in uncles_indexs:
             self.db_proxy.add_index(FLAGS.uncles, index, block_height = block_height)
