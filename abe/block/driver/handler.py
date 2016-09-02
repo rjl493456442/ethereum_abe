@@ -133,7 +133,7 @@ class BlockHandler(object):
             self.set_balance(accounts, self.blk_number, self.blk_number, record = True)
         
         # update miner table
-        self.db_proxy.update(FLAGS.miner, {"address": block['miner']}, {"$set": {"address": new_block['miner']}}, upsert = True)
+        self.db_proxy.update(FLAGS.miner, {"address": block['miner']}, {"$set": {"address": block['miner']}}, upsert = True)
         # insert block
         self.db_proxy.update(FLAGS.blocks, {"number":block['number']}, {"$set":block}, block_height = self.blk_number, upsert = True)
         return True
