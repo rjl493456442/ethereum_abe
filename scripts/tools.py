@@ -17,5 +17,6 @@ class Tool(object):
                     res = self.db_proxy.get(FLAGS.txs+str(idx), {"blockNumber" : hex(height)}, multi = True)
                     if res and len(res) > 0:
                         self.db_proxy.update(FLAGS.blocks, {"number": height}, {"$set": {"txs_num":len(res)}}, block_height = height)
-
+                    else:
+                        self.db_proxy.update(FLAGS.blocks, {"number": height}, {"$set": {"txs_num":0}}, block_height = height)    
                 print "process %d to %d blocks finish, elapsed %f" % (down_limit, up_limit-1, time.time() - time_start)
