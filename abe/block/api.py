@@ -18,17 +18,13 @@ class BlockAPI(object):
 		'''
 		self.driver.synchronize_forever()
 
-	def synchronize(self, begin, end, sync_balance):
+	def synchronize(self, begin, end):
 		''' retrieve the  blocks in range [begin, end) '''
-		self.driver.synchronize(begin, end, sync_balance)
+		self.driver.synchronize(begin, end)
 
-	def check(self, shardId, sync_balance):
+	def check(self, shardId):
 		''' check the  blocks in shardId slice , if miss, get it back; if duplicate remove it'''
-		self.driver.check(shardId, sync_balance)
-
-	def sync_balance(self, shardId):
-		''' sync the  accounts in shardId slice'''
-		self.driver.set_balance(shardId)
+		self.driver.check(shardId)
 
 	def sync_it(self, log_path, shardId):
 		''' sync internal tx from log file '''

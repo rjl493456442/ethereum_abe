@@ -23,10 +23,9 @@ def main(argv):
         if FLAGS.sync_block:
             begin = FLAGS.begin
             end = FLAGS.end
-            sync_balance = FLAGS.sync_balance
             if begin != -1 and end != -1 and end > begin:
                 block_api = BlockAPI()
-                block_api.synchronize(begin, end, sync_balance)
+                block_api.synchronize(begin, end)
                 return
 
         elif FLAGS.sync_block_forever:
@@ -36,18 +35,9 @@ def main(argv):
 
         elif FLAGS.check_block:
             shardId = FLAGS.shardId
-            sync_balance = FLAGS.sync_balance
-        
             if shardId != -1:
                 block_api = BlockAPI()
-                block_api.check(shardId, sync_balance)
-                return
-
-        elif FLAGS.sync_balance:
-            shardId = FLAGS.shardId
-            if shardId != -1:
-                block_api = BlockAPI()
-                block_api.sync_balance(shardId)
+                block_api.check(shardId)
                 return
 
         elif FLAGS.sync_it:

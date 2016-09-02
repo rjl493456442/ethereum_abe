@@ -54,30 +54,13 @@ class BuiltinDriver(base.Base):
         # get block in sequence
         self.start_loop()
 
-    def synchronize(self, begin, end, sync_balance):
+    def synchronize(self, begin, end):
         '''
         synchronize block in range[begin, end):
-        the sync_balance flag is set, sync all related account balance after parallelly synchronization
-        Args:
-            begin: int
-            end: int
-            sync_balance: bool, flag specify whether sync balance after sync
         '''
-        self.run(begin, end-1, sync_balance)
+        self.run(begin, end-1)
 
-    def set_balance(self, shardId):
-        '''
-        synchronize account balance in shardId slice
-        Args:
-            shardId: int, slice id
-        '''
-        time_start = time.time()
-        handler = BlockHandler(self.rpc_cli, self.logger, self.db_proxy)
-        handler._sync_balance(shardId, True) 
-        self.logger.info("sync balance finish, totally elapsed:%f" % (time.time()-time_start))
-
-
-    def check(self, shardId, sync_balance):
+    def check(self, shardId):
         '''
         check miss block in shardId slice, get it back if miss
         Args:
@@ -99,7 +82,7 @@ class BuiltinDriver(base.Base):
                     if i not in numbers:
                         miss.append(i)
                         
-                handler = BlockHandler(self.rpc_cli, self.logger, self.db_proxy, sync_balance)
+                handler = BlockHandler(self.rpc_cli, self.logger, self.db_proxy)
 
                 self.logger.info("totally %d blocks missing" % len(miss))
 
@@ -205,7 +188,7 @@ class BuiltinDriver(base.Base):
 
     def fork_check_last_block(self):
         if self.db_block_number == 0:return 
-        block_handler = BlockHandler(self.rpc_cli, self.logger, self.db_proxy, sync_balance = True)
+        block_handler = BlockHandler(self.rpc_cli, self.logger, self.db_proxy)
         block_handler.execute(self.db_block_number, fork_check = True)
 
     def listen(self):
@@ -232,26 +215,19 @@ class BuiltinDriver(base.Base):
         
     def start_loop(self):
         logger.info("begin loop handle")
-        block_handler = BlockHandler(self.rpc_cli, self.logger, self.db_proxy, sync_balance = True, sync_it = True)
+        block_handler = BlockHandler(self.rpc_cli, self.logger, self.db_proxy, sync_it = True)
         while True:
             block = self.share_queue.get()
             # need fork-check
             block_handler.execute(block, fork_check = True)
 
-    def run(self, begin, end, sync_balance):
+    def run(self, begin, end):
         time_start = time.time()
         self.logger.info("synchronize start, from %d to %d" % (begin, end))
         synchronizor = Synchronizor(begin, end, self.rpc_cli, self.logger)
         synchronizor.run()
         self.logger.info("synchronize start, from %d to %d finished, totally elapsed %f" % (begin, end, time.time() - time_start))
         
-        if sync_balance:
-            time_start = time.time()
-            self.logger.info("synchronize balance begin")
-            block_handler = BlockHandler(self.rpc_cli, self.logger, self.db_proxy)
-            block_handler._sync_balance_all(end)
-            self.logger.info("synchronize balance finished, totally elapsed %f" % (time.time() - time_start))
-
 
 
 class Synchronizor(base.Base):
