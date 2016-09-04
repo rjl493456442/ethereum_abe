@@ -63,9 +63,10 @@ class MongoDBProxy(object):
         table_prefix = table
         nums = [int(t[len(table_prefix):]) for t in tables if t.startswith(table_prefix) and t != table_prefix]
         if multi is False:
+            nums.sort(reverse = not ascend)
             ''' only single document is requred '''
             for id in nums:
-                res = self.mongo_cli.get(table_prefix + str(id), cond)
+                res = self.mongo_cli.get_one(table_prefix + str(id), cond)
                 if res:
                     return res
             return None

@@ -217,9 +217,10 @@ class BuiltinDriver(base.Base):
         logger.info("begin loop handle")
         block_handler = BlockHandler(self.rpc_cli, self.logger, self.db_proxy, sync_balance = True)
         while True:
-            block = self.share_queue.get()
+            block_hash = self.share_queue.get()
             # need fork-check
-            block_handler.execute(block, fork_check = True)
+            while True:
+                if block_handler.execute(block_hash, fork_check = True): break
 
     def run(self, begin, end, sync_balance):
         time_start = time.time()
@@ -234,7 +235,7 @@ class BuiltinDriver(base.Base):
             block_handler = BlockHandler(self.rpc_cli, self.logger, self.db_proxy)
             block_handler._sync_balance(end)
             self.logger.info("synchronize balance finished, totally elapsed %f" % (time.time() - time_start))
-
+        
 class Synchronizor(base.Base):
     def __init__(self, begin, end, rpc_cli, logger):
         self.pool = pool.Pool(FLAGS.greenlet_num)
@@ -294,9 +295,8 @@ class Synchronizor(base.Base):
         if (self.count %  1000 == 0):
             self.logger.info("1000 blocks elapsed : %f" % (time.time() - self.start))
             self.start = time.time()
-
+            
         self.worker_finished.set()
-
 
     def shutdown(self):
         """Shutdown the crawler after the pool has finished."""
