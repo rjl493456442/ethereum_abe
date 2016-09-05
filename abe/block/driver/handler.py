@@ -44,7 +44,7 @@ class BlockHandler(object):
                         (1) different txs
                         (2) undo txs in old block but not in new one
                         (3) apply txs in new block but not in old one
-                        (4) replace the origin 
+                        (4) replace the origin
                         '''
                         success = self.process_fork(res, blk)
                         return success
@@ -61,9 +61,9 @@ class BlockHandler(object):
         except Exception, e:
             self.logger.info("request block failed, errormsg %s" % e)
             return False
-    
+
     def maintain_chain(self, block):
-        res = self.db_proxy.search(FLAGS.blocks, {"number": utils.convert_to_int(block['number']) - 1}, multi = False) 
+        res = self.db_proxy.search(FLAGS.blocks, {"number": utils.convert_to_int(block['number']) - 1}, multi = False)
         if res:
             chain_head = res
             current_block = block
@@ -78,11 +78,11 @@ class BlockHandler(object):
                             success = self.process_fork(old_block, new_block)
                             if not success: continue
                         current_block = new_block
-                        res = self.db_proxy.search(FLAGS.blocks, {"number":current_block["number"]-1}, multi = False) 
+                        res = self.db_proxy.search(FLAGS.blocks, {"number":current_block["number"]-1}, multi = False)
                         if res: chain_head = res
                         else:
                             self.logger.error("maintain_chain failed, not found %s height block in db" % chain_head['number'])
-                    except Exception, e: 
+                    except Exception, e:
                         self.logger.error("maintain_chain failed , errormsg %s" % e)
                         continue
                 else: break
@@ -105,11 +105,11 @@ class BlockHandler(object):
                 })
 
             del data['alloc']
-        
+
         block = data
         txs = block['transactions']
         timestamp = block['timestamp']
-        
+
         for tx in txs:
             tx['blockNumber'] = "0x0"
             tx['timestamp'] = timestamp
@@ -119,7 +119,7 @@ class BlockHandler(object):
             self.db_proxy.update(FLAGS.accounts, {"address":tx["to"]}, operation, upsert = True, multi = False)
             self.db_proxy.update(FLAGS.txs, {"hash":tx["hash"]}, {"$set":tx}, upsert = True, multi = False, block_height = 0)
         block['txs_num'] = len(block['transactions'])
-            
+
         del block['transactions']
         self.db_proxy.update(FLAGS.blocks, {"number":0}, {"$set":block}, block_height = 0, upsert = True)
         return True
@@ -130,8 +130,8 @@ class BlockHandler(object):
             accounts = []
 
             txs = block['transactions']
-            timestamp = block['timestamp']      
-            # process tx 
+            timestamp = block['timestamp']
+            # process tx
             total_fee = 0
             for tx in txs:
                 res, accts = self.process_tx(tx, timestamp)
@@ -148,7 +148,7 @@ class BlockHandler(object):
             basic_reward = FLAGS.default_reward + len(block['uncles']) * FLAGS.default_reward * 1.0 / 32
             basic_reward = utils.unit_convert_from_ether(basic_reward)
             block['reward'] = total_fee + basic_reward
-        
+
             operation = {
                 "$set" : {"address" : block["miner"], "miner":1},
             }
@@ -183,7 +183,7 @@ class BlockHandler(object):
             old_txs = self.db_proxy.get(FLAGS.txs, {"blockNumber" : hex(old_block['number'])}, block_height = self.blk_number, multi = True)
 
             old_hashes = [tx['hash'] for tx in old_txs]
-            new_hashes = [tx['hash'] for tx in new_block['transactions']]    
+            new_hashes = [tx['hash'] for tx in new_block['transactions']]
 
             # undo_txs
             undo_txs = []
@@ -229,7 +229,7 @@ class BlockHandler(object):
                 "$set" : {"address" : new_block["miner"], "miner":1},
             }
             self.db_proxy.update(FLAGS.accounts, {"address":new_block["miner"]}, operation, upsert = True)
-            
+
             uncle_miners =  self.process_uncle(new_block)
             accounts.extend(uncle_miners)
 
@@ -237,7 +237,7 @@ class BlockHandler(object):
             accounts.append(old_block["miner"])
             # set balance
             if self.sync_balance : self.set_balance(accounts, self.blk_number)
-            
+
             self.db_proxy.update(FLAGS.blocks, {"hash": new_block['hash']}, {"$set":new_block}, block_height = self.blk_number, upsert = True)
             return True
         except Exception, e:
@@ -251,14 +251,14 @@ class BlockHandler(object):
             block['number'] = current_height
         else:
             current_height = block['number']
-        
+
         for _, uncle in enumerate(block['uncles']):
             buncle = self.rpc_cli.call(constant.METHOD_GET_UNCLE_BY_BLOCK_HASH_AND_INDEX, block["hash"], _)
             if buncle:
                 miners.append(buncle["miner"])
                 uncle_reward = (utils.convert_to_int(buncle['number']) - current_height + 8) * 1.0 * FLAGS.default_reward / 8
                 uncle_reward = utils.unit_convert_from_ether(uncle_reward)
-                
+
                 operation = {
                     "$set" : {"address" : buncle["miner"], "miner":1},
                 }
@@ -280,7 +280,7 @@ class BlockHandler(object):
             if k in receipt_useful_field:
                 tx[k] = v
         tx['timestamp'] = timestamp
-        
+
         # apply tx
         try:
             operation = {
@@ -288,7 +288,7 @@ class BlockHandler(object):
             }
             self.db_proxy.update(FLAGS.accounts, {"address":tx["from"]}, operation, upsert = True)
             accounts.append(tx['from'])
-            
+
             if tx['contractAddress']:
                 # contract creation transaction
                 code = self.rpc_cli.call(constant.METHOD_GET_CODE, tx['contractAddress'], "latest")
@@ -305,7 +305,7 @@ class BlockHandler(object):
                 self.db_proxy.update(FLAGS.accounts, {"address":tx["to"]}, operation, upsert = True)
                 accounts.append(tx['to'])
             # always insert the tx after this tx has been process
-            
+
             gas_cost = utils.convert_to_int(tx['gasUsed']) * utils.convert_to_int(tx["gasPrice"])
             tx['fee'] = utils.unit_convert(gas_cost)
             self.db_proxy.update(FLAGS.txs, {"hash" : tx["hash"]}, {"$set":tx}, block_height = self.blk_number, upsert = True)
@@ -334,10 +334,10 @@ class BlockHandler(object):
                 miners.append(buncle["miner"])
                 self.db_proxy.delete(FLAGS.uncles, {"mainNumber":current_height, "hash":uncle}, block_height = current_height)
         return miners
-    
+
     def revert_tx(self, tx, block_height):
-        try:  
-            accounts = []      
+        try:
+            accounts = []
             if tx['contractAddress']:
                 # contract creation transaction
                 self.db_proxy.delete(FLAGS.accounts, {"address": tx["contractAddress"]}, block_height = block_height)
@@ -357,11 +357,11 @@ class BlockHandler(object):
 
     def set_balance(self, accounts, block_number):
         if type(accounts) is list: accounts = list(set(accounts))
-        else: accounts = list(accounts)       
+        else: accounts = list(accounts)
         while len(accounts) > 0:
             try:
                 balance = self.rpc_cli.call(constant.METHOD_GET_BALANCE, accounts[0], block_number)
-                if balance:    
+                if balance:
                     operation = {
                         "$set" : {"balance" : balance, "address":accounts[0]}
                     }
@@ -372,16 +372,16 @@ class BlockHandler(object):
             except Exception, e:
                 self.logger.info(e)
                 accounts.append(accounts[0])
-        
+
         self.db_proxy.update(FLAGS.meta, {"sync_record":"ethereum"}, {"$set": {"account_status_flag":block_number} }, multi = False, upsert = True)
-         
+
     def add_indexes(self, block_height):
         if block_height % FLAGS.table_capacity == 0:
 
             blocks_indexs = [
-            [("number", pymongo.ASCENDING)],
-            [("hash", pymongo.ASCENDING)],
-            [("miner", pymongo.ASCENDING)],
+                [("number", pymongo.ASCENDING)],
+                [("hash", pymongo.ASCENDING)],
+                [("miner", pymongo.ASCENDING)],
             ]
             for index in blocks_indexs:
                 self.db_proxy.add_index(FLAGS.blocks, index, block_height = block_height)
@@ -408,4 +408,4 @@ class BlockHandler(object):
                 [("miner", pymongo.ASCENDING)],
             ]
             for index in uncles_indexs:
-            self.db_proxy.add_index(FLAGS.uncles, index, block_height = block_height)
+                self.db_proxy.add_index(FLAGS.uncles, index, block_height = block_height)
