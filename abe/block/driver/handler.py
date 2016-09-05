@@ -357,8 +357,7 @@ class BlockHandler(object):
 
     def set_balance(self, accounts, block_number):
         if type(accounts) is list: accounts = list(set(accounts))
-        else: accounts = list(accounts)      
-        self.logger.info(accounts)  
+        else: accounts = list(accounts)       
         while len(accounts) > 0:
             try:
                 balance = self.rpc_cli.call(constant.METHOD_GET_BALANCE, accounts[0], block_number)
