@@ -8,6 +8,7 @@ from ethereum import abi as _abi
 from multiprocessing import Process
 import signal
 from abe import utils
+import abe.token.utils as _utils
 FLAGS = flags.FLAGS
 
 class BuiltinDriver(base.TokenBuiltinBase):
