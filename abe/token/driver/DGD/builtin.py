@@ -92,6 +92,7 @@ class BuiltinDriver(base.TokenBuiltinBase):
                 "to" : to,
                 "value" : value,
                 "transactionHash" : log["transactionHash"],
+                "transactionIndex" : log["transactionIndex"],
                 "block" : int(log["blockNumber"], 16),
                 "blockHash" : log["blockHash"],
                 "type" : self.event
@@ -117,6 +118,7 @@ class BuiltinDriver(base.TokenBuiltinBase):
         self.db_proxy.update(balance_table, {"account" : to}, operation2, upsert = True)
 
     def revert_log(self, log):
+        if log.has_key("removed"): del log['removed']
         hash = _utils.hash_log(log)
         transfer_table = FLAGS.token_prefix + self.type
         balance_table = FLAGS.balance_prefix + self.type
@@ -131,13 +133,6 @@ class BuiltinDriver(base.TokenBuiltinBase):
 
         deleted_count = self.db_proxy.delete(transfer_table, {
             "hash" : hash,
-            "from" : f,
-            "to" : to,
-            "value" : value,
-            "transactionHash" : log["transactionHash"],
-            "block" : int(log["blockNumber"], 16),
-            "blockHash" : log["blockHash"],
-            "type" : self.event,
         }, multi = False).deleted_count
 
         if deleted_count == 0:

@@ -32,7 +32,7 @@ class BuiltinDriver(base.TokenBuiltinBase):
         
     def initialize(self):
         self.add_indexes_for_token(self.type)
-        res = self.db_proxy.get(FLAGS.token_prefix + self.type, {"type": self.event}, multi = True, sort_key = "block", ascend = False, limit = 1)
+        res = self.db_proxy.get(FLAGS.token_prefix + "DGD", {"type": self.event}, multi = True, sort_key = "block", ascend = False, limit = 1)
         if res:
             self._last_block = res[0]['block']
         else:
@@ -83,10 +83,12 @@ class BuiltinDriver(base.TokenBuiltinBase):
         operation = {
             "$set": {
                 "hash" : hash,
-                "from" : f,
-                "to" : to,
-                "value" : value,
+                "from" : log['address'],
+                "to" : user,
+                "amount" : amount,
+                "badge" : badge,
                 "transactionHash" : log["transactionHash"],
+                "transactionIndex" : log["transactionIndex"],
                 "block" : int(log["blockNumber"], 16),
                 "blockHash" : log["blockHash"],
                 "type" : self.event
@@ -107,6 +109,7 @@ class BuiltinDriver(base.TokenBuiltinBase):
 
 
     def revert_log(self, log):
+        if log.has_key("removed"): del log['removed']
         hash = _utils.hash_log(log)
         transfer_table = FLAGS.token_prefix + "DGD"
         balance_table = FLAGS.balance_prefix + "DGD"
@@ -117,13 +120,6 @@ class BuiltinDriver(base.TokenBuiltinBase):
                     
         deleted_count = self.db_proxy.delete(transfer_table, {
             "hash" : hash,
-            "from" : f,
-            "to" : to,
-            "value" : value,
-            "transactionHash" : log["transactionHash"],
-            "block" : int(log["blockNumber"], 16),
-            "blockHash" : log["blockHash"],
-            "type" : self.event,
         }, multi = False).deleted_count
 
         if deleted_count == 0:
