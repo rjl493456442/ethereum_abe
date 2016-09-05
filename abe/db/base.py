@@ -54,6 +54,7 @@ class Base(object):
             self.db_proxy.add_index(FLAGS.balance_prefix + name, index)
 
         token_indexs = [
+            [("hash", pymongo.ASCENDING)],
             [("from", pymongo.ASCENDING)],
             [("to", pymongo.ASCENDING)],
         ]

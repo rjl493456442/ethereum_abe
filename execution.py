@@ -53,7 +53,7 @@ def main(argv):
             if FLAGS.token != "":
                 print "token %s begin to sync!" % FLAGS.token
                 token_api = TokenAPI()
-                api.synchronize(FLAGS.token)
+                token_api.synchronize(FLAGS.token)
                 return
 
         elif FLAGS.tool and FLAGS.service != '':

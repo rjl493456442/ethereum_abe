@@ -72,6 +72,7 @@ class BuiltinDriver(base.TokenBuiltinBase):
         
 
     def handle_log(self, log):
+        hash = _utils.hash_log(log)
         transfer_table = FLAGS.token_prefix + self.type
         balance_table = FLAGS.balance_prefix + self.type
 
@@ -83,14 +84,24 @@ class BuiltinDriver(base.TokenBuiltinBase):
         f = '0x' + log['topics'][1].lower()[26:]
         to = '0x' + log['topics'][2].lower()[26:]
 
-        self.db_proxy.insert(transfer_table, {
-            "from" : f,
-            "to" : to,
-            "value" : value,
-            "transactionHash" : log["transactionHash"],
-            "block" : int(log["blockNumber"], 16),
-            "type" : self.event
-        })
+        operation = {
+            "$set": {
+                "hash" : hash,
+                "from" : f,
+                "to" : to,
+                "value" : value,
+                "transactionHash" : log["transactionHash"],
+                "block" : int(log["blockNumber"], 16),
+                "blockHash" : log["blockHash"],
+                "type" : self.event
+            }
+        }
+
+        objectId = self.db_proxy.update(transfer_table, {"hash":hash}, operation, multi = False, upsert = True).upserted_id
+
+        if objectId is  None:
+            self.logger.info("event log %s has been add, ignore it", hash)
+            return
 
         # update balance
         # TODO parse demical of token
@@ -105,6 +116,7 @@ class BuiltinDriver(base.TokenBuiltinBase):
         self.db_proxy.update(balance_table, {"account" : to}, operation2, upsert = True)
 
     def revert_log(self, log):
+        hash = _utils.hash_log(log)
         transfer_table = FLAGS.token_prefix + self.type
         balance_table = FLAGS.balance_prefix + self.type
 
@@ -116,14 +128,20 @@ class BuiltinDriver(base.TokenBuiltinBase):
         f = '0x' + log['topics'][1].lower()[26:]
         to = '0x' + log['topics'][2].lower()[26:]
 
-        self.db_proxy.delete(transfer_table, {
+        deleted_count = self.db_proxy.delete(transfer_table, {
+            "hash" : hash,
             "from" : f,
             "to" : to,
             "value" : value,
             "transactionHash" : log["transactionHash"],
             "block" : int(log["blockNumber"], 16),
-            "type" : self.event
-        }, multi = False)
+            "blockHash" : log["blockHash"],
+            "type" : self.event,
+        }, multi = False).deleted_count
+
+        if deleted_count == 0:
+            self.logger.info("event log %s has been deleted, ignore it", hash)
+            return
 
         # update balance
         # TODO parse demical of token

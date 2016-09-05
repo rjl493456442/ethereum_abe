@@ -279,9 +279,6 @@ class Synchronizor(base.Base):
             self.pool.spawn(self.worker, id)
 
     def worker(self, number):
-        if (number % FLAGS.table_capacity) == 0:
-            self.add_indexes(number)
-
         handler = BlockHandler(self.rpc_cli, self.logger, self.db_proxy)
 
         while True:

@@ -6,6 +6,7 @@ from abe import flags
 import time
 from abe import utils
 import json
+import pymongo
 FLAGS = flags.FLAGS
 
 class BlockHandler(object):
@@ -32,6 +33,7 @@ class BlockHandler(object):
 
             if blk:
                 self.blk_number = utils.convert_to_int(blk['number'])
+                self.add_indexes(self.blk_number)
 
                 if fork_check:
                     self.maintain_chain(blk)
@@ -373,4 +375,38 @@ class BlockHandler(object):
                 accounts.append(accounts[0])
         
         self.db_proxy.update(FLAGS.meta, {"sync_record":"ethereum"}, {"$set": {"account_status_flag":block_number} }, multi = False, upsert = True)
-           
+         
+    def add_indexes(self, block_height):
+        if block_height % FLAGS.table_capacity == 0:
+
+            blocks_indexs = [
+            [("number", pymongo.ASCENDING)],
+            [("hash", pymongo.ASCENDING)],
+            [("miner", pymongo.ASCENDING)],
+            ]
+            for index in blocks_indexs:
+                self.db_proxy.add_index(FLAGS.blocks, index, block_height = block_height)
+
+            tx_indexes = [
+                [("blockNumber", pymongo.ASCENDING)],
+                [("hash", pymongo.ASCENDING)],
+                [("from", pymongo.ASCENDING)],
+                [("to", pymongo.ASCENDING)],
+
+            ]
+            for index in tx_indexes:
+                self.db_proxy.add_index(FLAGS.txs, index, block_height = block_height)
+
+            accounts_indexs = [
+                [("address", pymongo.ASCENDING)],
+            ]
+            for index in accounts_indexs:
+                self.db_proxy.add_index(FLAGS.accounts, index)
+
+            uncles_indexs = [
+                [("mainNumber", pymongo.ASCENDING),("hash", pymongo.ASCENDING)],
+                [("hash", pymongo.ASCENDING)],
+                [("miner", pymongo.ASCENDING)],
+            ]
+            for index in uncles_indexs:
+            self.db_proxy.add_index(FLAGS.uncles, index, block_height = block_height)
