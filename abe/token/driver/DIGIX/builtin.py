@@ -88,7 +88,7 @@ class BuiltinDriver(base.TokenBuiltinBase):
                 "amount" : amount,
                 "badge" : badge,
                 "transactionHash" : log["transactionHash"],
-                "transactionIndex" : log["transactionIndex"],
+                "logIndex" : log["logIndex"],
                 "block" : int(log["blockNumber"], 16),
                 "blockHash" : log["blockHash"],
                 "type" : self.event

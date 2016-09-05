@@ -1,21 +1,22 @@
-## ethereum abe 
+## ethereum abe
 
 **ethereum** 是一个用来爬取以太坊数据的项目
 
-### 使用方法 
+### 使用方法
 
 	python execute.py [options]
 	options:
-      --sync_block:  同步区块数据
+      --sync_block_forever:  同步区块数据
       --sync_token:  同步token数据
 	  --token:       token名字
       --mongodb_default_db:  数据库
 	  --table_capacity: shard大小
 	  --rpc_host:    数据源ip
       --rpc_port:    数据源端口
-    
+
     example：
-       python execute.py --sync_block=True
+       python execute.py --sync_block_forever=True
+       python execute.py --sync_block=True --begin=0 --end=2000000
        python execute.py --sync_token=True --token=DCS
 
 
@@ -29,8 +30,8 @@
  - token_{$token-name}
  - balance_{$token_name}
  - token_basic
- 
-### blocks 
+
+### blocks
 
 字段名  | 类型
 ------------- | -------------
@@ -56,12 +57,12 @@ sha3Uncles  | hexstr
 logsBloom  | hexstr
 reward  | int
 
-### uncles 
+### uncles
 
 字段名  | 类型
 ------------- | -------------
 _id  | bson.ObjectId
-mainNumber | int 
+mainNumber | int
 number  | hexstr
 nonce  | hexstr
 transactionRoot  | hexstr
@@ -111,10 +112,6 @@ gasUsed  | hexstr
 _id  | bson.ObjectId
 address  | hexstr
 balance  | hexstr
-tx_in  | list
-tx_out  | list
-mine  | list
-mine_uncles  | list
 
 ### token_basic
 字段名  | 类型
@@ -140,8 +137,11 @@ from  | hexstr
 to  | hexstr
 value  | hexstr
 type  | str
+hash  | hexstr
 transactionHash  | hexstr
+logIndex  | hexstr
 block  | int
+blockHash  | hexstr
 
 
 
