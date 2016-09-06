@@ -144,7 +144,8 @@ class BuiltinDriver(base.Base):
             else:
                 self._db_block_number = res[0]['number']
             return True
-        except:
+        except Exception, e:
+            self.logger.info("get status error :%s" % e)
             return False
 
     def initialize(self):
