@@ -272,9 +272,17 @@ class BlockHandler(object):
     def process_tx(self, tx, timestamp):
         # merge tx receipt data
         accounts = []
+        cnt = 5
         while True:
             receipt = self.rpc_cli.call(constant.METHOD_GET_TX_RECEIPT, tx['hash'])
-            if receipt: break
+            if receipt or cnt == 0: break
+            else:
+                cnt = cnt - 1
+                time.sleep(FLAGS.poll_interval)
+        if cnt == 0:
+            self.logger.info("tx :%s, get receipt failed after 5 time retry, discard", tx['hash'])
+            return 0, []
+
         receipt_useful_field = ['cumulativeGasUsed', 'contractAddress', 'gasUsed', 'logs']
         for k, v in receipt.items():
             if k in receipt_useful_field:
@@ -391,6 +399,7 @@ class BlockHandler(object):
                 [("hash", pymongo.ASCENDING)],
                 [("from", pymongo.ASCENDING)],
                 [("to", pymongo.ASCENDING)],
+                [("contractAddress", pymongo.ASCENDING)],
 
             ]
             for index in tx_indexes:
