@@ -62,9 +62,10 @@ class MongodbClient(object):
     def delete_many(self, table, cond):
         self.mc[table].delete_many(cond)
 
-    def count(self, table):
-        res = self.mc[table].find().count()
+    def count(self, table, cond = None):
+        res = self.mc[table].find(cond).count()
         return int(res) if res else 0
+
 
     def add_index(self, table, indexs):
         self.mc[table].create_index(indexs)
