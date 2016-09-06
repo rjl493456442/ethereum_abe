@@ -81,17 +81,31 @@ class MongoDBProxy(object):
                 id1 = id2 = index = cnt = 0
                 for index in range(len(nums)):
                     cnt = self.mongo_cli.count_with_cond(table_prefix + str(nums[index]), cond)
+                    if _skip - cnt >= 0:
                         _skip = _skip - cnt; id1 = id1 + 1
+                    if _to - cnt >= 0:
                         _to = _to - cnt; id2 = id2 + 1
                     else:
                         break
+                if id1 == len(nums): 
+                    id1 = len(nums) - 1
+                    _skip = _skip + self.mongo_cli.count_with_cond(table_prefix + str(nums[id1]), cond)
+
+                if id2 == len(nums): 
+                    id2 = len(nums) - 1
+                    _to = _to + self.mongo_cli.count_with_cond(table_prefix + str(nums[id2]), cond)
+  
                 if id1 == id2:
+                    return self.mongo_cli.get_many(table_prefix + str(nums[id1]), cond, skip = _skip, n = limit, sort_key = sort_key, ascend = ascend)
                 else:
+                    res = self.mongo_cli.get_many(table_prefix + str(nums[id1]), cond, skip = _skip, sort_key = sort_key, ascend = ascend)
                     results.extend(res)
                     index = id1 + 1
                     while index < id2:
+                        res = self.mongo_cli.get_many(table_prefix + str(nums[index]), cond, sort_key = sort_key, ascend = ascend)
                         index = index + 1
                         results.extend(res)
+                    res = self.mongo_cli.get_many(table_prefix + str(nums[id2]), cond, sort_key = sort_key, ascend = ascend, n = _to)
                     if res:
                         results.extend(res)
                     return results
