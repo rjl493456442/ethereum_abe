@@ -58,6 +58,7 @@ class MongoDBProxy(object):
         Returns:
             document(s) satisfies the cond
         '''
+
         self.mongo_cli.use_db(FLAGS.mongodb_default_db)
         tables = self.mongo_cli.mc.collection_names()
         table_prefix = table
@@ -79,26 +80,18 @@ class MongoDBProxy(object):
                 start = skip; to = skip + limit; _skip = skip; _to = to
                 id1 = id2 = index = cnt = 0
                 for index in range(len(nums)):
-                    cnt = self.mongo_cli.count(table_prefix + str(nums[index]))
-                    if _skip - cnt > 0:
+                    cnt = self.mongo_cli.count_with_cond(table_prefix + str(nums[index]), cond)
                         _skip = _skip - cnt; id1 = id1 + 1
-                    if _to - cnt > 0:
                         _to = _to - cnt; id2 = id2 + 1
                     else:
                         break
-                if id1 >= len(nums) or id2 >= len(nums):
-                    return 
                 if id1 == id2:
-                    return self.mongo_cli.get_many(table_prefix + str(nums[id1]), skip = _skip, n = limit, sort_key = sort_key, ascend = ascend)
                 else:
-                    res = self.mongo_cli.get_many(table_prefix + str(nums[id1]), skip = _skip, sort_key = sort_key, ascend = ascend)
                     results.extend(res)
                     index = id1 + 1
                     while index < id2:
-                        res = self.mongo_cli.get_many(table_prefix + str(nums[index]), sort_key = sort_key, ascend = ascend)
                         index = index + 1
                         results.extend(res)
-                    res = self.mongo_cli.get_many(table_prefix + str(nums[id2]), sort_key = sort_key, ascend = ascend, n = _to)
                     if res:
                         results.extend(res)
                     return results
@@ -115,7 +108,6 @@ class MongoDBProxy(object):
                 if skip > 0:
                     results = results[skip:]
                 return results
-
     def update(self, table, cond, operation, upsert = False, multi = False, block_height = None):
         '''
         update document from specific table with table_id

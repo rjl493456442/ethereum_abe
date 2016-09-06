@@ -105,8 +105,13 @@ class BuiltinDriver(base.TokenBuiltinBase):
         operation = {
             "$inc" : {"balance" : amount}
         }
+
         self.db_proxy.update(balance_table, {"account" : user}, operation, upsert = True)
 
+        operation = {
+            "$inc" : {"supply": amount}
+        }
+        self.db_proxy.update(FLAGS.token_basic, {"token":"DGD"}, operation, upsert = True)
 
     def revert_log(self, log):
         if log.has_key("removed"): del log['removed']
