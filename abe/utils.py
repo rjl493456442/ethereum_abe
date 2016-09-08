@@ -84,7 +84,7 @@ def unit_convert(num):
         radix = 1 * (10 ** 18)
     return num * 1.0 / radix
 
-def regular_extract(line):
+def regular_extract(line, filename, position):
     '''
         ## internal tx
         <field name> - <offset> - <description>
@@ -120,9 +120,9 @@ def regular_extract(line):
         blockHash       | 3 |       blockHash
 
     '''
-    hash = '0x' + hashlib.new("sha224", line.encode("hex")).hexdigest()
+    hash = '0x' + hashlib.new("sha224", (line+filename+str(position)).encode("hex")).hexdigest()
     fields = line.split(' ')
-    
+
     if fields[3] == "INTERNALTX":
         info = {
             "hash" : hash,

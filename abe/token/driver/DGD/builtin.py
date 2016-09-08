@@ -73,6 +73,7 @@ class BuiltinDriver(base.TokenBuiltinBase):
         
 
     def handle_log(self, log):
+        if log.has_key("removed"): del log['removed']
         hash = _utils.hash_log(log)
         transfer_table = FLAGS.token_prefix + self.type
         balance_table = FLAGS.balance_prefix + self.type

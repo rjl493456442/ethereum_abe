@@ -13,17 +13,15 @@ class LoghandlerTest(unittest.TestCase):
     def setUp(self):
         self.dbproxy = dbproxy.MongoDBProxy()
         self.handler = log_handler.LogHandler(self.dbproxy)
-        
+        FLAGS.table_capacity = 100000
     def test_sync_it(self):
-        block_heights = [470168, 470169, 470173, 482025, 482026]
+        block_heights = [470168, 470169, 482014, 482015,482025,482026, 500000]
         
         # first block of log
-        block_height = 470168
-        self.handler.sync_it(block_height)
-        res=self.dbproxy.get(FLAGS.block_it, {"block_number":block_height}, multi=False)
-        self.assertNotEqual(res, None)
-        self.assertEqual("0xb813782614a12660f88d8ebb7a0aaa4f23c77a6934b5061023e5122fce01122d", res["txs"][0]['tx_hash'])
-        self.assertEqual(12, len(res['txs'][0]['internal_txs']))
+        for block_height in block_heights:
+            self.handler.sync_internal_transaction(block_height)
+            
+           
 
 
     def tearDown(self):

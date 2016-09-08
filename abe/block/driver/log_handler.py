@@ -15,15 +15,15 @@ class LogHandler(object):
         self.db_proxy = db_proxy
         super(LogHandler, self).__init__()
 
-    def sync_it(self, block_height):
+    def sync_internal_transaction(self, block_height):
         self.block_height = block_height
         self.cursor = self._get_cursor()
 
-        file_handler = open(self.cursor["filename"], "r")
-        
+        file_handler = open(self.cursor["filename"], "a+")
+        file_handler.seek(self.cursor["position"], 0)
+
         data = self._find_log(file_handler, block_height)
-        for d in data:print d
-        print len(data)
+
         if len(data) != 0: self.process_log(data)
         self._save_cursor(file_handler)
 
@@ -62,24 +62,27 @@ class LogHandler(object):
                 else:
                     continue
             try:
-                info = utils.regular_extract(line)
+                info = utils.regular_extract(line, file_handler.name, file_handler.tell())
                 if not info: continue
-                if info['blocknumber'] != block_height: 
+                if info['blocknumber'] > block_height: 
                     file_handler.seek(-1 * len(line), 1)
                     return data
-                else:
+                elif info['blocknumber'] == block_height:
                     data.append(info)
+                else:
+                    pass
             except Exception, e:
                 self.logger.info("Error: %s, Invalid line %s, ignore it" % (e, line))
 
+
     def run(self, filename):
-        file_handler = open(filename, "r")
+        file_handler = open(filename, "w+")
         for data in self.read_logs(file_handler):
             self.process_log(data)
 
     def read_logs(self, file_handler):
         data = []
-        txhash = None
+        blkhash = None
         while True:
             line = file_handler.readline()
             if line == "":
@@ -91,14 +94,14 @@ class LogHandler(object):
             try:
                 info = utils.regular_extract(line)
                 if not info: continue
-                if txhash is None: 
-                    txhash = info["txhash"]
+                if blkhash is None: 
+                    blkhash = info["blockhash"]
                     data.append(info)
                 else:
-                    if txhash != info["txhash"]:
+                    if blkhash != info["blockhash"]:
                         file_handler.seek(-1 * len(line), 1)
                         yield data
-                        txhash = None
+                        blkhash = None
                         data = []
                     else:
                         data.append(info)
@@ -145,7 +148,7 @@ class LogHandler(object):
             }
 
             objectId = self.db_proxy.update(FLAGS.internaltx_prefix, {"hash":it['hash']}, {"$set":it}, block_height = blocknumber, upsert = True, multi = False).upserted_id
-            if objectId is  None:
+            if objectId is None:
                 self.logger.info("internal tx %s has been add, ignore it", info['hash'])
                 return
 
