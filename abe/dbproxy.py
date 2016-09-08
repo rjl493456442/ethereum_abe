@@ -204,6 +204,38 @@ class MongoDBProxy(object):
             table_name = table_name + str(table_id)
         self.mongo_cli.add_index(table_name, indexes)
 
+    def count(self, table, cond, block_height = None, multi = True):
+        '''
+        get count
+        Args:
+            table: table prefix
+            cond: query condition
+            block_height: block_height
+        Returns:
+            count
+        '''
+        self.mongo_cli.use_db(FLAGS.mongodb_default_db)
+        table_name = table
+        if isinstance(block_height, int):
+            table_id = block_height / FLAGS.table_capacity
+            table_name = table_name + str(table_id)
+            return self.mongo_cli.count(table_name, cond)
+
+        else:
+            if multi:
+                tables = self.mongo_cli.mc.collection_names()
+                table_prefix = table
+                nums = [int(t[len(table_prefix):]) for t in tables if t.startswith(table_prefix) and t != table_prefix]      
+                cnt = 0
+                for num in nums:
+                    table_name = table_prefix + str(num)
+                    cnt = cnt + self.mongo_cli.count(table_name, cond)
+                return cnt
+            else:
+                table_name = table
+                return self.mongo_cli.count(table_name, cond)
+                
+
     def drop_db(self, db_name = FLAGS.mongodb_default_db):
         '''
         drop db

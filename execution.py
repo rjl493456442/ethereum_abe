@@ -57,8 +57,9 @@ def main(argv):
                 return
 
         elif FLAGS.tool and FLAGS.service != '':
+            shardId = FLAGS.shardId
             tool = tools.Tool()
-            tool.service(FLAGS.service)
+            tool.service(FLAGS.service, shardId)
             return 
 
         print 'Usage: %s args\n%s' % (sys.argv[0], FLAGS)
